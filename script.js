@@ -39,7 +39,6 @@ function playSound(type) {
     }
 }
 
-// Fonction pour abréger les grands nombres (argent/prix)
 function formatNumber(num) {
     if (num < 1000) return Math.floor(num).toString();
     const suffixes = ["", " K", " M", " B", " T", " Qa", " Qi", " Sx", " Sp", " Oc"];
@@ -48,7 +47,6 @@ function formatNumber(num) {
     return shortNum.replace(".00", "") + suffixes[suffixIndex];
 }
 
-// Fonction pour abréger les chances (ex: 1/10 M)
 function formatOdds(oddsNum) {
     if (oddsNum < 1000) return oddsNum.toString();
     const suffixes = ["", " K", " M", " B", " T", " Qa", " Qi", " Sx", " Sp", " Oc"];
