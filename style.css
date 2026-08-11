@@ -1,0 +1,181 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #151515;
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game {
+    text-align: center;
+}
+
+h1 {
+    font-size: 42px;
+    margin-bottom: 20px;
+}
+
+#result {
+    font-size: 70px;
+    font-weight: bold;
+    margin-bottom: 40px;
+    position: relative;
+    transition: transform 0.12s ease;
+}
+
+/* Conteneur des boutons principaux */
+.button-container {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    gap: 15px;
+}
+
+#rollButton {
+    justify-self: center;
+    font-size: 28px;
+    font-weight: bold;
+    padding: 18px 40px;
+    border: none;
+    border-radius: 12px;
+    background: #5865f2;
+    color: white;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+#rollButton:hover {
+    transform: scale(1.05);
+}
+
+#rollButton:active {
+    transform: scale(0.95);
+}
+
+/* --- STYLE AUTO-ROLL FIXE --- */
+#autoRollButton {
+    justify-self: end;
+    font-size: 16px;
+    font-weight: bold;
+    /* Dimensions fixes pour empêcher le mouvement */
+    width: 170px; 
+    height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: none;
+    border-radius: 12px;
+    background: #2f3136;
+    color: white;
+    cursor: pointer;
+    transition: 0.15s;
+    line-height: 1.2;
+}
+
+#autoRollButton small {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+#autoRollButton.locked {
+    background: #202225;
+    color: #666;
+    cursor: not-allowed;
+}
+
+#autoRollButton.active {
+    background: #43b581;
+    box-shadow: 0 0 15px rgba(67, 181, 129, 0.4);
+}
+
+#autoRollButton:not(.locked):hover {
+    transform: scale(1.05);
+}
+/* --------------------------- */
+
+#result small {
+    display: block;
+    font-size: 24px;
+    margin-top: 8px;
+    color: white;
+    opacity: 0.9;
+}
+
+.flash {
+    animation: flash 0.7s ease;
+}
+
+@keyframes flash {
+    0% { transform: scale(0.8); filter: brightness(1); }
+    50% { transform: scale(1.25); filter: brightness(2.5); text-shadow: 0 0 30px currentColor; }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+#inventoryButton, #shopButton, #settingsButton {
+    display: block;
+    margin: 15px auto 0;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 10px;
+    background: #292929;
+    color: white;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+#inventoryButton:hover, #shopButton:hover, #settingsButton:hover {
+    transform: scale(1.05);
+    background: #353535;
+}
+
+/* Modales */
+.inventoryWindow {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.inventoryBox {
+    width: 420px;
+    max-width: 90%;
+    background: #202020;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+#inventoryList {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.inventoryItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: #292929;
+    border-radius: 8px;
+    font-size: 18px;
+}

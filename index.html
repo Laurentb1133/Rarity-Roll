@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RNG Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="game">
+
+        <h1>🎲 RNG GAME</h1>
+
+        <!-- Annonce Admin en haut -->
+        <div id="adminAnnouncementBanner" style="display: none; background: linear-gradient(90deg, #ff3b30, #ff9500); color: white; font-weight: bold; padding: 12px 20px; border-radius: 10px; font-size: 15px; text-align: center; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4); animation: pulse 1.5s infinite;">
+            <div id="adminAnnouncementTitle" style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #ffe6e6;">Admin Laurentb1133</div>
+            <div id="adminAnnouncementText" style="font-size: 16px;"></div>
+        </div>
+
+        <!-- Bannières d'événements -->
+        <div id="eventBannersContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
+            <div id="moneyEventBanner" style="display: none; background: #ffb300; color: #111; font-weight: bold; padding: 8px 15px; border-radius: 8px; font-size: 14px; text-align: center;">
+                🎉 EVENT PIÈCES : Pièces x<span id="moneyEventMult">2</span> (<span id="moneyEventTimer">15:00</span>)
+            </div>
+            <div id="luckEventBanner" style="display: none; background: #5865f2; color: white; font-weight: bold; padding: 8px 15px; border-radius: 8px; font-size: 14px; text-align: center;">
+                🍀 EVENT LUCK : Chance x<span id="luckEventMult">2</span> (<span id="luckEventTimer">15:00</span>)
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-container" style="margin-bottom: 20px;">
+            <div style="font-size: 20px; font-weight: bold; color: #ffd700;">
+                🪙 Pièces : <span id="coinCount">0</span>
+            </div>
+            <div style="font-size: 16px; font-weight: bold; color: #5865f2; margin-top: 5px;">
+                🍀 Multiplicateur : <span id="luckDisplay">x1</span>
+            </div>
+        </div>
+
+        <div id="result">
+            ?
+        </div>
+
+        <div class="button-container">
+            <button id="autoRollButton" class="locked">
+                AUTO-ROLL <br>
+                <small id="autoRollRequirement">50 rolls requis</small>
+            </button>
+
+            <button id="rollButton">
+                ROLL
+            </button>
+        </div>
+
+        <button id="inventoryButton">🎒 INVENTAIRE</button>
+        <button id="shopButton">🛒 BOUTIQUE</button>
+        <button id="settingsButton">⚙️ PARAMÈTRES</button>
+
+    </div>
+
+    <!-- Fenêtre Inventaire -->
+    <div id="inventoryWindow" class="inventoryWindow">
+        <div class="inventoryBox">
+            <div class="inventoryHeader">
+                <h2>🎒 Inventaire</h2>
+                <button id="closeInventory">✕</button>
+            </div>
+            <div id="inventoryList"></div>
+        </div>
+    </div>
+
+    <!-- Fenêtre Boutique -->
+    <div id="shopWindow" class="inventoryWindow">
+        <div class="inventoryBox">
+            <div class="inventoryHeader">
+                <h2>🛒 Boutique</h2>
+                <button id="closeShop">✕</button>
+            </div>
+            <div id="shopList" style="display: flex; flex-direction: column; gap: 15px;">
+                
+                <!-- Amélioration de Chance -->
+                <div class="inventoryItem" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span>🍀 Amélioration de Chance</span>
+                        <span id="luckLevelDisplay">Niveau 1 / 20</span>
+                    </div>
+                    <div id="luckPreviewDisplay" style="font-size: 14px; color: #aaa;">
+                        Prochain niveau : Luck x1 ➔ x2
+                    </div>
+                    <button id="buyLuckButton" style="width: 100%; padding: 12px; border: none; border-radius: 8px; background: #5865f2; color: white; font-weight: bold; cursor: pointer; font-size: 16px;">
+                        Acheter (<span id="luckCostDisplay">50</span> 🪙)
+                    </button>
+                </div>
+
+                <!-- Amélioration de Pièces -->
+                <div class="inventoryItem" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span>🪙 Multiplicateur de Pièces</span>
+                        <span id="coinMultLevelDisplay">Niveau 1 / 20</span>
+                    </div>
+                    <div id="coinMultPreviewDisplay" style="font-size: 14px; color: #aaa;">
+                        Prochain niveau : Pièces x1 ➔ x2
+                    </div>
+                    <button id="buyCoinMultButton" style="width: 100%; padding: 12px; border: none; border-radius: 8px; background: #ffb300; color: #111; font-weight: bold; cursor: pointer; font-size: 16px;">
+                        Acheter (<span id="coinMultCostDisplay">100</span> 🪙)
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Fenêtre Paramètres -->
+    <div id="settingsWindow" class="inventoryWindow">
+        <div class="inventoryBox">
+            <div class="inventoryHeader">
+                <h2>⚙️ Paramètres</h2>
+                <button id="closeSettings">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 20px; padding: 10px 0;">
+                <div style="background: #292929; padding: 15px; border-radius: 10px;">
+                    <label for="luckSlider" style="font-weight: bold; display: block; margin-bottom: 10px;">
+                        🎯 Multiplicateur actif : <span id="currentLuckSetting" style="color: #5865f2;">x1</span>
+                    </label>
+                    <input type="range" id="luckSlider" min="1" max="1" value="1" style="width: 100%; cursor: pointer;">
+                </div>
+
+                <div style="background: #292929; padding: 15px; border-radius: 10px; border-left: 4px solid #ff3b30;">
+                    <h3 style="font-size: 16px; margin-bottom: 5px; color: #ff3b30;">Zone de danger</h3>
+                    <button id="resetButton" style="width: 100%; padding: 12px; border: none; border-radius: 8px; background: #ff3b30; color: white; font-weight: bold; cursor: pointer;">
+                        🗑️ Réinitialiser la sauvegarde
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE ADMIN (F2) -->
+    <div id="adminPage" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f0f13; z-index: 9999; flex-direction: column; padding: 30px; box-sizing: border-box; font-family: Arial, sans-serif; color: white; overflow-y: auto;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff3b30; padding-bottom: 15px; margin-bottom: 30px;">
+            <h1 style="margin: 0; color: #ff3b30; font-size: 28px;">🛡️ Panneau d'Administration</h1>
+            <button id="closeAdminPage" style="padding: 10px 20px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">
+                Quitter l'Admin ✕
+            </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+            
+            <!-- Message Global Admin -->
+            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px; grid-column: 1 / -1;">
+                <h3 style="margin-top: 0; color: #ff3b30;">📢 Envoyer un Message Global</h3>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Votre message :</label>
+                    <input type="text" id="adminMessageInput" placeholder="Ex: Salut tout le monde !" style="width: 100%; padding: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; font-size: 15px; box-sizing: border-box;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="adminSendMsgButton" style="flex: 1; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Diffuser le message 🚀</button>
+                    <button id="adminClearMsgButton" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Effacer la bannière 🛑</button>
+                </div>
+            </div>
+
+            <!-- Event Pièces -->
+            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                <h3 style="margin-top: 0; color: #ffb300;">💰 Event Pièces</h3>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Multiplicateur :</label>
+                    <input type="number" id="adminMoneyMultiplierInput" value="2" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
+                    <input type="number" id="adminMoneyDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="adminStartMoneyEvent" style="flex: 1; padding: 12px; background: #ffb300; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
+                    <button id="adminStopMoneyEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
+                </div>
+            </div>
+
+            <!-- Event Luck -->
+            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                <h3 style="margin-top: 0; color: #5865f2;">🍀 Event Luck</h3>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Multiplicateur :</label>
+                    <input type="number" id="adminLuckMultiplierInput" value="2" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
+                    <input type="number" id="adminLuckDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="adminStartLuckEvent" style="flex: 1; padding: 12px; background: #5865f2; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
+                    <button id="adminStopLuckEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
+                </div>
+            </div>
+
+            <!-- Forcer Rareté -->
+            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                <h3 style="margin-top: 0; color: #00e5ff;">✨ Forcer le prochain Roll</h3>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Rareté :</label>
+                    <select id="adminRaritySelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
+                </div>
+                <button id="adminForceRarityButton" style="width: 100%; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
