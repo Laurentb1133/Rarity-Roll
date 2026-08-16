@@ -142,131 +142,160 @@
     <!-- PAGE ADMIN (F2) -->
     <div id="adminPage" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f0f13; z-index: 9999; flex-direction: column; padding: 30px; box-sizing: border-box; font-family: Arial, sans-serif; color: white; overflow-y: auto;">
 
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff3b30; padding-bottom: 15px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff3b30; padding-bottom: 15px; margin-bottom: 20px;">
             <h1 style="margin: 0; color: #ff3b30; font-size: 28px;">🛡️ Panneau d'Administration</h1>
-            <button id="closeAdminPage" style="padding: 10px 20px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">
-                Quitter l'Admin ✕
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button id="adminLogoutButton" style="display: none; padding: 10px 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;">
+                    Déconnexion
+                </button>
+                <button id="closeAdminPage" style="padding: 10px 20px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">
+                    Quitter l'Admin ✕
+                </button>
+            </div>
         </div>
 
-        <div id="adminSyncStatus" style="margin-bottom: 20px; font-size: 13px; color: #888;">
-            🔌 Connexion à la synchro...
+        <!-- Écran de connexion -->
+        <div id="adminLoginGate" style="max-width: 400px; margin: 40px auto; background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 30px;">
+            <h2 style="margin-top: 0; color: #ff3b30; text-align: center;">🔒 Connexion Admin</h2>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-size: 14px;">Email :</label>
+                <input type="email" id="adminEmailInput" autocomplete="username" style="width: 100%; padding: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-size: 14px;">Mot de passe :</label>
+                <input type="password" id="adminPasswordInput" autocomplete="current-password" style="width: 100%; padding: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box;">
+            </div>
+            <button id="adminLoginButton" style="width: 100%; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Se connecter</button>
+            <div id="adminLoginError" style="color: #ff6b6b; margin-top: 10px; font-size: 13px; text-align: center;"></div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        <!-- Contenu admin, visible seulement une fois connecté -->
+        <div id="adminPanelContent" style="display: none;">
 
-            <!-- Message Global Admin -->
-            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px; grid-column: 1 / -1;">
-                <h3 style="margin-top: 0; color: #ff3b30;">📢 Envoyer un Message Global</h3>
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Votre message :</label>
-                    <input type="text" id="adminMessageInput" placeholder="Ex: Salut tout le monde !" style="width: 100%; padding: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; font-size: 15px; box-sizing: border-box;">
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button id="adminSendMsgButton" style="flex: 1; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Diffuser le message 🚀</button>
-                    <button id="adminClearMsgButton" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Effacer la bannière 🛑</button>
-                </div>
+            <div id="adminSyncStatus" style="margin-bottom: 20px; font-size: 13px; color: #888;">
+                🔌 Connexion à la synchro...
             </div>
 
-            <!-- Event Pièces -->
-            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
-                <h3 style="margin-top: 0; color: #ffb300;">💰 Event Pièces</h3>
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Multiplicateur :</label>
-                    <input type="number" id="adminMoneyMultiplierInput" value="2" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
-                    <input type="number" id="adminMoneyDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button id="adminStartMoneyEvent" style="flex: 1; padding: 12px; background: #ffb300; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
-                    <button id="adminStopMoneyEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
-                </div>
-            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
 
-            <!-- Event Luck -->
-            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
-                <h3 style="margin-top: 0; color: #5865f2;">🍀 Event Luck</h3>
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Multiplicateur :</label>
-                    <input type="number" id="adminLuckMultiplierInput" value="2" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                <!-- Message Global Admin -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px; grid-column: 1 / -1;">
+                    <h3 style="margin-top: 0; color: #ff3b30;">📢 Envoyer un Message Global</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Votre message :</label>
+                        <input type="text" id="adminMessageInput" placeholder="Ex: Salut tout le monde !" style="width: 100%; padding: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; font-size: 15px; box-sizing: border-box;">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminSendMsgButton" style="flex: 1; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Diffuser le message 🚀</button>
+                        <button id="adminClearMsgButton" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Effacer la bannière 🛑</button>
+                    </div>
                 </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
-                    <input type="number" id="adminLuckDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button id="adminStartLuckEvent" style="flex: 1; padding: 12px; background: #5865f2; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
-                    <button id="adminStopLuckEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
-                </div>
-            </div>
 
-            <!-- Forcer Rareté -->
-            <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
-                <h3 style="margin-top: 0; color: #00e5ff;">✨ Forcer le prochain Roll</h3>
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Rareté :</label>
-                    <select id="adminRaritySelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
+                <!-- Event Pièces -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #ffb300;">💰 Event Pièces</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Multiplicateur :</label>
+                        <input type="number" id="adminMoneyMultiplierInput" value="2" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
+                        <input type="number" id="adminMoneyDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminStartMoneyEvent" style="flex: 1; padding: 12px; background: #ffb300; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
+                        <button id="adminStopMoneyEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
+                    </div>
                 </div>
-                <button id="adminForceRarityButton" style="width: 100%; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
-                <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain roll de <strong>chaque</strong> joueur connecté.</p>
-            </div>
 
+                <!-- Event Luck -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #5865f2;">🍀 Event Luck</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Multiplicateur :</label>
+                        <input type="number" id="adminLuckMultiplierInput" value="2" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
+                        <input type="number" id="adminLuckDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminStartLuckEvent" style="flex: 1; padding: 12px; background: #5865f2; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
+                        <button id="adminStopLuckEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
+                    </div>
+                </div>
+
+                <!-- Forcer Rareté -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #00e5ff;">✨ Forcer le prochain Roll</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Rareté :</label>
+                        <select id="adminRaritySelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
+                    </div>
+                    <button id="adminForceRarityButton" style="width: 100%; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain roll de <strong>chaque</strong> joueur connecté.</p>
+                </div>
+
+            </div>
         </div>
     </div>
 
     <!-- ==========================================================
-         FIREBASE : synchro temps réel du panneau admin.
-         Remplace firebaseConfig ci-dessous par la config de TON
-         projet Firebase (Console Firebase > Paramètres du projet).
-         Ce bloc doit rester AVANT script.js.
+         FIREBASE : synchro temps réel + connexion admin.
     =========================================================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
-  apiKey: "AIzaSyApNM-2D1ktItK0DVqZJRB2_XEZUc7s-tQ",
-  authDomain: "rng-game-68715.firebaseapp.com",
-  databaseURL: "https://rng-game-68715-default-rtdb.firebaseio.com",
-  projectId: "rng-game-68715",
-  storageBucket: "rng-game-68715.firebasestorage.app",
-  messagingSenderId: "1027087385853",
-  appId: "1:1027087385853:web:a6f7cb8d903e2443e42a94"
-};
+            apiKey: "AIzaSyApNM-2D1ktItK0DVqZJRB2_XEZUc7s-tQ",
+            authDomain: "rng-game-68715.firebaseapp.com",
+            databaseURL: "https://rng-game-68715-default-rtdb.firebaseio.com",
+            projectId: "rng-game-68715",
+            storageBucket: "rng-game-68715.firebasestorage.app",
+            messagingSenderId: "1027087385853",
+            appId: "1:1027087385853:web:a6f7cb8d903e2443e42a94"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app);
         const adminRef = ref(db, "adminState");
 
         window.firebaseAdmin = {
             _lastState: null,
             _listeners: [],
-            _connected: false,
 
-            // Fusionne un morceau d'état dans adminState (ex: { message: {...} })
             push(partialState) {
                 const current = window.firebaseAdmin._lastState || {};
                 set(adminRef, { ...current, ...partialState, _updatedAt: Date.now() });
             },
-            // Retire une clé de l'état (ex: "moneyEvent")
             clear(key) {
                 const current = { ...(window.firebaseAdmin._lastState || {}) };
                 delete current[key];
                 set(adminRef, { ...current, _updatedAt: Date.now() });
             },
-            // S'abonner aux changements d'état
             subscribe(fn) {
                 window.firebaseAdmin._listeners.push(fn);
                 if (window.firebaseAdmin._lastState) fn(window.firebaseAdmin._lastState);
+            },
+
+            // Authentification admin
+            login(email, password) {
+                return signInWithEmailAndPassword(auth, email, password);
+            },
+            logout() {
+                return signOut(auth);
+            },
+            onAuthChange(fn) {
+                onAuthStateChanged(auth, fn);
             }
         };
 
         onValue(adminRef, (snapshot) => {
             const state = snapshot.val() || {};
             window.firebaseAdmin._lastState = state;
-            window.firebaseAdmin._connected = true;
             const statusEl = document.getElementById("adminSyncStatus");
             if (statusEl) statusEl.textContent = "🟢 Synchro admin connectée";
             window.firebaseAdmin._listeners.forEach(fn => fn(state));
