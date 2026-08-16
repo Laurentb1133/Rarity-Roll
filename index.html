@@ -80,7 +80,7 @@
                 <button id="closeShop">✕</button>
             </div>
             <div id="shopList" style="display: flex; flex-direction: column; gap: 15px;">
-                
+
                 <!-- Amélioration de Chance -->
                 <div class="inventoryItem" style="flex-direction: column; align-items: flex-start; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; width: 100%;">
@@ -141,7 +141,7 @@
 
     <!-- PAGE ADMIN (F2) -->
     <div id="adminPage" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f0f13; z-index: 9999; flex-direction: column; padding: 30px; box-sizing: border-box; font-family: Arial, sans-serif; color: white; overflow-y: auto;">
-        
+
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff3b30; padding-bottom: 15px; margin-bottom: 30px;">
             <h1 style="margin: 0; color: #ff3b30; font-size: 28px;">🛡️ Panneau d'Administration</h1>
             <button id="closeAdminPage" style="padding: 10px 20px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">
@@ -149,8 +149,12 @@
             </button>
         </div>
 
+        <div id="adminSyncStatus" style="margin-bottom: 20px; font-size: 13px; color: #888;">
+            🔌 Connexion à la synchro...
+        </div>
+
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-            
+
             <!-- Message Global Admin -->
             <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px; grid-column: 1 / -1;">
                 <h3 style="margin-top: 0; color: #ff3b30;">📢 Envoyer un Message Global</h3>
@@ -206,10 +210,71 @@
                     <select id="adminRaritySelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
                 </div>
                 <button id="adminForceRarityButton" style="width: 100%; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
+                <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain roll de <strong>chaque</strong> joueur connecté.</p>
             </div>
 
         </div>
     </div>
+
+    <!-- ==========================================================
+         FIREBASE : synchro temps réel du panneau admin.
+         Remplace firebaseConfig ci-dessous par la config de TON
+         projet Firebase (Console Firebase > Paramètres du projet).
+         Ce bloc doit rester AVANT script.js.
+    =========================================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+        const firebaseConfig = {
+  apiKey: "AIzaSyApNM-2D1ktItK0DVqZJRB2_XEZUc7s-tQ",
+  authDomain: "rng-game-68715.firebaseapp.com",
+  databaseURL: "https://rng-game-68715-default-rtdb.firebaseio.com",
+  projectId: "rng-game-68715",
+  storageBucket: "rng-game-68715.firebasestorage.app",
+  messagingSenderId: "1027087385853",
+  appId: "1:1027087385853:web:a6f7cb8d903e2443e42a94"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const adminRef = ref(db, "adminState");
+
+        window.firebaseAdmin = {
+            _lastState: null,
+            _listeners: [],
+            _connected: false,
+
+            // Fusionne un morceau d'état dans adminState (ex: { message: {...} })
+            push(partialState) {
+                const current = window.firebaseAdmin._lastState || {};
+                set(adminRef, { ...current, ...partialState, _updatedAt: Date.now() });
+            },
+            // Retire une clé de l'état (ex: "moneyEvent")
+            clear(key) {
+                const current = { ...(window.firebaseAdmin._lastState || {}) };
+                delete current[key];
+                set(adminRef, { ...current, _updatedAt: Date.now() });
+            },
+            // S'abonner aux changements d'état
+            subscribe(fn) {
+                window.firebaseAdmin._listeners.push(fn);
+                if (window.firebaseAdmin._lastState) fn(window.firebaseAdmin._lastState);
+            }
+        };
+
+        onValue(adminRef, (snapshot) => {
+            const state = snapshot.val() || {};
+            window.firebaseAdmin._lastState = state;
+            window.firebaseAdmin._connected = true;
+            const statusEl = document.getElementById("adminSyncStatus");
+            if (statusEl) statusEl.textContent = "🟢 Synchro admin connectée";
+            window.firebaseAdmin._listeners.forEach(fn => fn(state));
+        }, (error) => {
+            const statusEl = document.getElementById("adminSyncStatus");
+            if (statusEl) statusEl.textContent = "🔴 Erreur de connexion Firebase : " + error.message;
+        });
+    </script>
 
     <script src="script.js"></script>
 </body>
