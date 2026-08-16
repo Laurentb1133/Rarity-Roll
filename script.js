@@ -92,8 +92,12 @@ let adminMessageTimeout = null;
 let isAutoRollActive = false, autoRollTimeout = null, forcedRarity = null;
 let isRolling = false;
 let autoRollCooldown = false;
-let isMoneyEventActive = false, customMoneyMultiplier = 1, moneyEventTimeRemaining = 0, moneyEventInterval = null;
-let isLuckEventActive = false, customLuckMultiplier = 1, luckEventTimeRemaining = 0, luckEventInterval = null;
+let isMoneyEventActive = false, customMoneyMultiplier = 1, moneyEventTimeRemaining = 0;
+let isLuckEventActive = false, customLuckMultiplier = 1, luckEventTimeRemaining = 0;
+
+// Intervalles pour les décomptes visuels des events (pilotés par l'état Firebase)
+let moneyEventCountdownInterval = null;
+let luckEventCountdownInterval = null;
 
 const inventory = {};
 rarities.forEach(r => inventory[r.name] = 0);
@@ -176,10 +180,10 @@ rarities.forEach(r => {
 });
 
 function saveGame() {
-    localStorage.setItem("rngGameSave", JSON.stringify({ 
-        coins, luck, activeLuck, luckLevel, luckCost, 
-        coinMult, coinMultLevel, coinMultCost, 
-        totalRolls, inventory 
+    localStorage.setItem("rngGameSave", JSON.stringify({
+        coins, luck, activeLuck, luckLevel, luckCost,
+        coinMult, coinMultLevel, coinMultCost,
+        totalRolls, inventory
     }));
 }
 
@@ -192,7 +196,7 @@ function loadGame() {
         activeLuck = data.activeLuck !== undefined ? data.activeLuck : luck;
         luckLevel = data.luckLevel || 1;
         luckCost = data.luckCost || 50;
-        
+
         coinMult = data.coinMult || 1;
         coinMultLevel = data.coinMultLevel || 1;
         coinMultCost = data.coinMultCost || 100;
@@ -220,7 +224,7 @@ function triggerAdminMessage(msg) {
 
 function updateUIStats() {
     coinCount.textContent = formatNumber(coins);
-    
+
     let luckText = `x${activeLuck} (Max: x${luck})`;
     if (isLuckEventActive) luckText += ` [EVENT x${customLuckMultiplier}]`;
     luckDisplay.textContent = luckText;
@@ -347,7 +351,7 @@ function executeRoll(callback) {
         updateInventory();
         updateAutoRollUnlockStatus();
         saveGame();
-        
+
         isRolling = false;
         if (!isAutoRollActive) {
             rollButton.disabled = false;
@@ -377,18 +381,18 @@ autoRollButton.addEventListener("click", () => {
         alert("50 rolls requis pour l'Auto-Roll !");
         return;
     }
-    
+
     if (autoRollCooldown) return;
-    
+
     isAutoRollActive = !isAutoRollActive;
-    
+
     if (isAutoRollActive) {
         autoRollCooldown = true;
         autoRollButton.classList.add("active");
-        
+
         let timeLeft = 5;
         autoRollButton.innerHTML = `AUTO-ROLL<br><small style='color:white;'>Sécurité (${timeLeft}s)</small>`;
-        
+
         const cooldownInterval = setInterval(() => {
             timeLeft--;
             if (timeLeft > 0) {
@@ -441,94 +445,184 @@ window.addEventListener("keydown", (e) => {
 
 closeAdminPage.addEventListener("click", () => { adminPage.style.display = "none"; playSound("click"); });
 
+// ==========================================================================
+// PANNEAU ADMIN : chaque action écrit dans Firebase au lieu d'agir en local.
+// L'effet réel est appliqué par handleAdminState() plus bas, pour TOUT
+// le monde (y compris toi), quand la valeur revient depuis Firebase.
+// ==========================================================================
+
 adminSendMsgButton.addEventListener("click", () => {
     const text = adminMessageInput.value.trim();
     if (text === "") return alert("Écris un message !");
+    if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
     playSound("success");
     adminPage.style.display = "none";
-    triggerAdminMessage(text);
+    window.firebaseAdmin.push({ message: { text, id: Date.now() } });
     adminMessageInput.value = "";
 });
 
 adminClearMsgButton.addEventListener("click", () => {
-    if (adminMessageTimeout) clearTimeout(adminMessageTimeout);
-    adminAnnouncementBanner.style.display = "none";
-    adminMessage = "";
+    if (!window.firebaseAdmin) return;
+    window.firebaseAdmin.clear("message");
     adminMessageInput.value = "";
     playSound("click");
     adminPage.style.display = "none";
 });
 
 adminStartMoneyEvent.addEventListener("click", () => {
-    if (isMoneyEventActive) return alert("Déjà actif !");
-    customMoneyMultiplier = parseInt(adminMoneyMultiplierInput.value) || 1;
-    moneyEventTimeRemaining = (parseInt(adminMoneyDurationInput.value) || 1) * 60;
-    isMoneyEventActive = true;
+    if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+    const mult = parseInt(adminMoneyMultiplierInput.value) || 1;
+    const durationSec = (parseInt(adminMoneyDurationInput.value) || 1) * 60;
     playSound("success");
     adminPage.style.display = "none";
-    if (moneyEventBanner) { moneyEventBanner.style.display = "block"; moneyEventMult.textContent = customMoneyMultiplier; }
-    if (moneyEventInterval) clearInterval(moneyEventInterval);
-    moneyEventInterval = setInterval(() => {
-        moneyEventTimeRemaining--;
-        let m = Math.floor(moneyEventTimeRemaining / 60), s = moneyEventTimeRemaining % 60;
-        if (moneyEventTimer) moneyEventTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-        if (moneyEventTimeRemaining <= 0) stopMoneyEvent();
-        updateUIStats();
-    }, 1000);
-    updateUIStats();
+    window.firebaseAdmin.push({
+        moneyEvent: { mult, endsAt: Date.now() + durationSec * 1000 }
+    });
 });
 
-function stopMoneyEvent() {
-    isMoneyEventActive = false;
-    customMoneyMultiplier = 1;
-    if (moneyEventInterval) clearInterval(moneyEventInterval);
-    if (moneyEventBanner) moneyEventBanner.style.display = "none";
-    updateUIStats();
-}
-
-adminStopMoneyEvent.addEventListener("click", () => { stopMoneyEvent(); playSound("click"); adminPage.style.display = "none"; });
+adminStopMoneyEvent.addEventListener("click", () => {
+    if (!window.firebaseAdmin) return;
+    window.firebaseAdmin.clear("moneyEvent");
+    playSound("click");
+    adminPage.style.display = "none";
+});
 
 adminStartLuckEvent.addEventListener("click", () => {
-    if (isLuckEventActive) return alert("Déjà actif !");
-    customLuckMultiplier = parseInt(adminLuckMultiplierInput.value) || 1;
-    luckEventTimeRemaining = (parseInt(adminLuckDurationInput.value) || 1) * 60;
-    isLuckEventActive = true;
+    if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+    const mult = parseInt(adminLuckMultiplierInput.value) || 1;
+    const durationSec = (parseInt(adminLuckDurationInput.value) || 1) * 60;
     playSound("success");
     adminPage.style.display = "none";
-    if (luckEventBanner) { luckEventBanner.style.display = "block"; luckEventMult.textContent = customLuckMultiplier; }
-    if (luckEventInterval) clearInterval(luckEventInterval);
-    luckEventInterval = setInterval(() => {
-        luckEventTimeRemaining--;
-        let m = Math.floor(luckEventTimeRemaining / 60), s = luckEventTimeRemaining % 60;
-        if (luckEventTimer) luckEventTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-        if (luckEventTimeRemaining <= 0) stopLuckEvent();
-        updateUIStats();
-    }, 1000);
-    updateUIStats();
+    window.firebaseAdmin.push({
+        luckEvent: { mult, endsAt: Date.now() + durationSec * 1000 }
+    });
 });
 
-function stopLuckEvent() {
-    isLuckEventActive = false;
-    customLuckMultiplier = 1;
-    if (luckEventInterval) clearInterval(luckEventInterval);
-    if (luckEventBanner) luckEventBanner.style.display = "none";
-    updateUIStats();
-}
-
-adminStopLuckEvent.addEventListener("click", () => { stopLuckEvent(); playSound("click"); adminPage.style.display = "none"; });
+adminStopLuckEvent.addEventListener("click", () => {
+    if (!window.firebaseAdmin) return;
+    window.firebaseAdmin.clear("luckEvent");
+    playSound("click");
+    adminPage.style.display = "none";
+});
 
 adminForceRarityButton.addEventListener("click", () => {
+    if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
     const found = rarities.find(r => r.name === adminRaritySelect.value);
     if (found) {
-        forcedRarity = found;
         playSound("success");
         adminPage.style.display = "none";
+        window.firebaseAdmin.push({ forcedRarity: { name: found.name, id: Date.now() } });
     }
 });
 
+// ==========================================================================
+// APPLICATION DES ÉTATS ADMIN REÇUS DE FIREBASE (pour tous les joueurs)
+// ==========================================================================
+
+let lastAppliedMessageId = null;
+let lastAppliedForcedRarityId = null;
+
+function applyMoneyEventFromState(moneyEvent) {
+    if (moneyEventCountdownInterval) clearInterval(moneyEventCountdownInterval);
+
+    if (!moneyEvent || moneyEvent.endsAt <= Date.now()) {
+        isMoneyEventActive = false;
+        customMoneyMultiplier = 1;
+        if (moneyEventBanner) moneyEventBanner.style.display = "none";
+        updateUIStats();
+        return;
+    }
+
+    isMoneyEventActive = true;
+    customMoneyMultiplier = moneyEvent.mult;
+    if (moneyEventBanner) { moneyEventBanner.style.display = "block"; moneyEventMult.textContent = customMoneyMultiplier; }
+
+    function tick() {
+        const remaining = Math.max(0, Math.round((moneyEvent.endsAt - Date.now()) / 1000));
+        const m = Math.floor(remaining / 60), s = remaining % 60;
+        if (moneyEventTimer) moneyEventTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (remaining <= 0) {
+            clearInterval(moneyEventCountdownInterval);
+            isMoneyEventActive = false;
+            customMoneyMultiplier = 1;
+            if (moneyEventBanner) moneyEventBanner.style.display = "none";
+            updateUIStats();
+        }
+    }
+    tick();
+    moneyEventCountdownInterval = setInterval(tick, 1000);
+    updateUIStats();
+}
+
+function applyLuckEventFromState(luckEvent) {
+    if (luckEventCountdownInterval) clearInterval(luckEventCountdownInterval);
+
+    if (!luckEvent || luckEvent.endsAt <= Date.now()) {
+        isLuckEventActive = false;
+        customLuckMultiplier = 1;
+        if (luckEventBanner) luckEventBanner.style.display = "none";
+        updateUIStats();
+        return;
+    }
+
+    isLuckEventActive = true;
+    customLuckMultiplier = luckEvent.mult;
+    if (luckEventBanner) { luckEventBanner.style.display = "block"; luckEventMult.textContent = customLuckMultiplier; }
+
+    function tick() {
+        const remaining = Math.max(0, Math.round((luckEvent.endsAt - Date.now()) / 1000));
+        const m = Math.floor(remaining / 60), s = remaining % 60;
+        if (luckEventTimer) luckEventTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (remaining <= 0) {
+            clearInterval(luckEventCountdownInterval);
+            isLuckEventActive = false;
+            customLuckMultiplier = 1;
+            if (luckEventBanner) luckEventBanner.style.display = "none";
+            updateUIStats();
+        }
+    }
+    tick();
+    luckEventCountdownInterval = setInterval(tick, 1000);
+    updateUIStats();
+}
+
+function handleAdminState(state) {
+    // Message global
+    if (state.message && state.message.id !== lastAppliedMessageId) {
+        lastAppliedMessageId = state.message.id;
+        triggerAdminMessage(state.message.text);
+    } else if (!state.message && adminAnnouncementBanner.style.display !== "none") {
+        if (adminMessageTimeout) clearTimeout(adminMessageTimeout);
+        adminAnnouncementBanner.style.display = "none";
+        adminMessage = "";
+    }
+
+    // Events pièces / luck (pilotés entièrement par l'état reçu)
+    applyMoneyEventFromState(state.moneyEvent);
+    applyLuckEventFromState(state.luckEvent);
+
+    // Rareté forcée : s'applique au prochain roll de CHAQUE joueur
+    if (state.forcedRarity && state.forcedRarity.id !== lastAppliedForcedRarityId) {
+        lastAppliedForcedRarityId = state.forcedRarity.id;
+        const found = rarities.find(r => r.name === state.forcedRarity.name);
+        if (found) forcedRarity = found;
+    }
+}
+
+function connectAdminSync() {
+    if (window.firebaseAdmin) {
+        window.firebaseAdmin.subscribe(handleAdminState);
+    } else {
+        // Le module Firebase (chargé en <script type="module">) est différé ;
+        // on réessaie un peu plus tard s'il n'est pas encore prêt.
+        setTimeout(connectAdminSync, 100);
+    }
+}
+connectAdminSync();
+
 function updateShopUI() {
     coinCount.textContent = formatNumber(coins);
-    
+
     luckLevelDisplay.textContent = `Niveau ${luckLevel} / ${maxLuckLevel}`;
     if (luckLevel >= maxLuckLevel) {
         luckPreviewDisplay.textContent = "Niveau max atteint !";
