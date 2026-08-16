@@ -145,6 +145,13 @@ const resetButton = document.getElementById("resetButton");
 
 const adminPage = document.getElementById("adminPage");
 const closeAdminPage = document.getElementById("closeAdminPage");
+const adminLoginGate = document.getElementById("adminLoginGate");
+const adminPanelContent = document.getElementById("adminPanelContent");
+const adminEmailInput = document.getElementById("adminEmailInput");
+const adminPasswordInput = document.getElementById("adminPasswordInput");
+const adminLoginButton = document.getElementById("adminLoginButton");
+const adminLoginError = document.getElementById("adminLoginError");
+const adminLogoutButton = document.getElementById("adminLogoutButton");
 const adminMessageInput = document.getElementById("adminMessageInput");
 const adminSendMsgButton = document.getElementById("adminSendMsgButton");
 const adminClearMsgButton = document.getElementById("adminClearMsgButton");
@@ -439,11 +446,83 @@ resetButton.addEventListener("click", () => {
     }
 });
 
+// --- Raccourci admin discret : Ctrl + Shift tenus, puis 4, 5, 6 dans l'ordre ---
+// (utilise e.code, indépendant de la disposition du clavier, ex: FR-CA)
+let adminComboBuffer = [];
+let adminComboTimer = null;
+const ADMIN_SEQUENCE = ["Digit4", "Digit5", "Digit6"];
+
 window.addEventListener("keydown", (e) => {
-    if (e.key === "F2") { e.preventDefault(); adminPage.style.display = "flex"; playSound("click"); }
+    if (!(e.ctrlKey && e.shiftKey)) { adminComboBuffer = []; return; }
+    if (!ADMIN_SEQUENCE.includes(e.code)) return;
+
+    adminComboBuffer.push(e.code);
+    if (adminComboBuffer.length > ADMIN_SEQUENCE.length) adminComboBuffer.shift();
+
+    if (adminComboTimer) clearTimeout(adminComboTimer);
+    adminComboTimer = setTimeout(() => { adminComboBuffer = []; }, 1500);
+
+    if (adminComboBuffer.join(",") === ADMIN_SEQUENCE.join(",")) {
+        e.preventDefault();
+        adminPage.style.display = "flex";
+        playSound("click");
+        adminComboBuffer = [];
+    }
 });
 
 closeAdminPage.addEventListener("click", () => { adminPage.style.display = "none"; playSound("click"); });
+
+// ==========================================================================
+// CONNEXION ADMIN : le panneau admin reste caché tant que le compte
+// Firebase (créé dans la console) ne s'est pas connecté.
+// ==========================================================================
+
+function connectAdminAuth() {
+    if (window.firebaseAdmin && window.firebaseAdmin.onAuthChange) {
+        window.firebaseAdmin.onAuthChange((user) => {
+            if (user) {
+                adminLoginGate.style.display = "none";
+                adminPanelContent.style.display = "block";
+                adminLogoutButton.style.display = "inline-block";
+            } else {
+                adminLoginGate.style.display = "block";
+                adminPanelContent.style.display = "none";
+                adminLogoutButton.style.display = "none";
+            }
+        });
+    } else {
+        setTimeout(connectAdminAuth, 100);
+    }
+}
+connectAdminAuth();
+
+adminLoginButton.addEventListener("click", () => {
+    const email = adminEmailInput.value.trim();
+    const password = adminPasswordInput.value;
+    adminLoginError.textContent = "";
+    if (!email || !password) {
+        adminLoginError.textContent = "Entre ton email et ton mot de passe.";
+        return;
+    }
+    window.firebaseAdmin.login(email, password)
+        .then(() => {
+            playSound("success");
+            adminPasswordInput.value = "";
+        })
+        .catch(() => {
+            adminLoginError.textContent = "Identifiants incorrects.";
+            playSound("click");
+        });
+});
+
+adminPasswordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") adminLoginButton.click();
+});
+
+adminLogoutButton.addEventListener("click", () => {
+    window.firebaseAdmin.logout();
+    playSound("click");
+});
 
 // ==========================================================================
 // PANNEAU ADMIN : chaque action écrit dans Firebase au lieu d'agir en local.
