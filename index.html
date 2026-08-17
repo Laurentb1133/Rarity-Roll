@@ -85,7 +85,7 @@
                 <div class="inventoryItem" style="flex-direction: column; align-items: flex-start; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; width: 100%;">
                         <span>🍀 Amélioration de Chance</span>
-                        <span id="luckLevelDisplay">Niveau 1 / 20</span>
+                        <span id="luckLevelDisplay">Niveau 1 / 30</span>
                     </div>
                     <div id="luckPreviewDisplay" style="font-size: 14px; color: #aaa;">
                         Prochain niveau : Luck x1 ➔ x2
@@ -99,7 +99,7 @@
                 <div class="inventoryItem" style="flex-direction: column; align-items: flex-start; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; width: 100%;">
                         <span>🪙 Multiplicateur de Pièces</span>
-                        <span id="coinMultLevelDisplay">Niveau 1 / 20</span>
+                        <span id="coinMultLevelDisplay">Niveau 1 / 30</span>
                     </div>
                     <div id="coinMultPreviewDisplay" style="font-size: 14px; color: #aaa;">
                         Prochain niveau : Pièces x1 ➔ x2
@@ -232,8 +232,11 @@
                         <label style="display: block; margin-bottom: 5px; font-size: 14px;">Rareté :</label>
                         <select id="adminRaritySelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
                     </div>
-                    <button id="adminForceRarityButton" style="width: 100%; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
-                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain roll de <strong>chaque</strong> joueur connecté.</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminForceRarityButton" style="flex: 1; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
+                        <button id="adminCancelForceRarityButton" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
+                    </div>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain roll de <strong>chaque</strong> joueur connecté. "Annuler" retire l'effet pour ceux qui n'ont pas encore rollé.</p>
                 </div>
 
             </div>
