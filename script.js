@@ -1,5 +1,5 @@
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+ 
 function playSound(type) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
@@ -7,7 +7,7 @@ function playSound(type) {
     osc.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-
+ 
     if (type === "click") {
         osc.type = "sine";
         osc.frequency.setValueAtTime(600, now);
@@ -38,7 +38,7 @@ function playSound(type) {
         osc.start(now); osc.stop(now + 0.3);
     }
 }
-
+ 
 function formatNumber(num) {
     if (num < 1000) return Math.floor(num).toString();
     const suffixes = ["", " K", " M", " B", " T", " Qa", " Qi", " Sx", " Sp", " Oc"];
@@ -46,7 +46,7 @@ function formatNumber(num) {
     const shortNum = (num / Math.pow(1000, suffixIndex)).toFixed(2);
     return shortNum.replace(".00", "") + suffixes[suffixIndex];
 }
-
+ 
 function formatOdds(oddsNum) {
     if (oddsNum < 1000) return oddsNum.toString();
     const suffixes = ["", " K", " M", " B", " T", " Qa", " Qi", " Sx", " Sp", " Oc"];
@@ -54,7 +54,7 @@ function formatOdds(oddsNum) {
     const shortNum = (oddsNum / Math.pow(1000, suffixIndex)).toFixed(1);
     return shortNum.replace(".0", "") + suffixes[suffixIndex];
 }
-
+ 
 const rarities = [
     { name: "Common", oddsNumber: 2, color: "#bdbdbd", coins: 1 },
     { name: "Uncommon", oddsNumber: 5, color: "#4caf50", coins: 3 },
@@ -84,9 +84,9 @@ const rarities = [
     { name: "Suprême", oddsNumber: 10000000000000, color: "#ffffff", coins: 5000000000000 },
     { name: "Laurentb1133", oddsNumber: 100000000000000, color: "rainbow", coins: 50000000000000 }
 ];
-
-let luck = 1, activeLuck = 1, luckLevel = 1, maxLuckLevel = 20, luckCost = 50, coins = 0, totalRolls = 0;
-let coinMult = 1, coinMultLevel = 1, maxCoinMultLevel = 20, coinMultCost = 100;
+ 
+let luck = 1, activeLuck = 1, luckLevel = 1, maxLuckLevel = 30, luckCost = 50, coins = 0, totalRolls = 0;
+let coinMult = 1, coinMultLevel = 1, maxCoinMultLevel = 30, coinMultCost = 100;
 let adminMessage = "";
 let adminMessageTimeout = null;
 let isAutoRollActive = false, autoRollTimeout = null, forcedRarity = null;
@@ -94,21 +94,21 @@ let isRolling = false;
 let autoRollCooldown = false;
 let isMoneyEventActive = false, customMoneyMultiplier = 1, moneyEventTimeRemaining = 0;
 let isLuckEventActive = false, customLuckMultiplier = 1, luckEventTimeRemaining = 0;
-
+ 
 // Intervalles pour les décomptes visuels des events (pilotés par l'état Firebase)
 let moneyEventCountdownInterval = null;
 let luckEventCountdownInterval = null;
-
+ 
 const inventory = {};
 rarities.forEach(r => inventory[r.name] = 0);
-
+ 
 const rollButton = document.getElementById("rollButton");
 const autoRollButton = document.getElementById("autoRollButton");
 const autoRollRequirement = document.getElementById("autoRollRequirement");
 const result = document.getElementById("result");
 const coinCount = document.getElementById("coinCount");
 const luckDisplay = document.getElementById("luckDisplay");
-
+ 
 let coinMultDisplay = document.getElementById("coinMultDisplay");
 if (!coinMultDisplay) {
     coinMultDisplay = document.createElement("div");
@@ -117,12 +117,12 @@ if (!coinMultDisplay) {
         luckDisplay.parentNode.insertBefore(coinMultDisplay, luckDisplay.nextSibling);
     }
 }
-
+ 
 const inventoryButton = document.getElementById("inventoryButton");
 const inventoryWindow = document.getElementById("inventoryWindow");
 const closeInventory = document.getElementById("closeInventory");
 const inventoryList = document.getElementById("inventoryList");
-
+ 
 const shopButton = document.getElementById("shopButton");
 const shopWindow = document.getElementById("shopWindow");
 const closeShop = document.getElementById("closeShop");
@@ -130,19 +130,19 @@ const buyLuckButton = document.getElementById("buyLuckButton");
 const luckLevelDisplay = document.getElementById("luckLevelDisplay");
 const luckCostDisplay = document.getElementById("luckCostDisplay");
 const luckPreviewDisplay = document.getElementById("luckPreviewDisplay");
-
+ 
 const buyCoinMultButton = document.getElementById("buyCoinMultButton");
 const coinMultLevelDisplay = document.getElementById("coinMultLevelDisplay");
 const coinMultCostDisplay = document.getElementById("coinMultCostDisplay");
 const coinMultPreviewDisplay = document.getElementById("coinMultPreviewDisplay");
-
+ 
 const settingsButton = document.getElementById("settingsButton");
 const settingsWindow = document.getElementById("settingsWindow");
 const closeSettings = document.getElementById("closeSettings");
 const luckSlider = document.getElementById("luckSlider");
 const currentLuckSetting = document.getElementById("currentLuckSetting");
 const resetButton = document.getElementById("resetButton");
-
+ 
 const adminPage = document.getElementById("adminPage");
 const closeAdminPage = document.getElementById("closeAdminPage");
 const adminLoginGate = document.getElementById("adminLoginGate");
@@ -157,35 +157,36 @@ const adminSendMsgButton = document.getElementById("adminSendMsgButton");
 const adminClearMsgButton = document.getElementById("adminClearMsgButton");
 const adminAnnouncementBanner = document.getElementById("adminAnnouncementBanner");
 const adminAnnouncementText = document.getElementById("adminAnnouncementText");
-
+ 
 const adminMoneyMultiplierInput = document.getElementById("adminMoneyMultiplierInput");
 const adminMoneyDurationInput = document.getElementById("adminMoneyDurationInput");
 const adminStartMoneyEvent = document.getElementById("adminStartMoneyEvent");
 const adminStopMoneyEvent = document.getElementById("adminStopMoneyEvent");
-
+ 
 const adminLuckMultiplierInput = document.getElementById("adminLuckMultiplierInput");
 const adminLuckDurationInput = document.getElementById("adminLuckDurationInput");
 const adminStartLuckEvent = document.getElementById("adminStartLuckEvent");
 const adminStopLuckEvent = document.getElementById("adminStopLuckEvent");
-
+ 
 const adminRaritySelect = document.getElementById("adminRaritySelect");
 const adminForceRarityButton = document.getElementById("adminForceRarityButton");
-
+const adminCancelForceRarityButton = document.getElementById("adminCancelForceRarityButton");
+ 
 const moneyEventBanner = document.getElementById("moneyEventBanner");
 const moneyEventMult = document.getElementById("moneyEventMult");
 const moneyEventTimer = document.getElementById("moneyEventTimer");
-
+ 
 const luckEventBanner = document.getElementById("luckEventBanner");
 const luckEventMult = document.getElementById("luckEventMult");
 const luckEventTimer = document.getElementById("luckEventTimer");
-
+ 
 rarities.forEach(r => {
     const option = document.createElement("option");
     option.value = r.name;
     option.textContent = `${r.name} (1/${formatOdds(r.oddsNumber)})`;
     adminRaritySelect.appendChild(option);
 });
-
+ 
 function saveGame() {
     localStorage.setItem("rngGameSave", JSON.stringify({
         coins, luck, activeLuck, luckLevel, luckCost,
@@ -193,7 +194,7 @@ function saveGame() {
         totalRolls, inventory
     }));
 }
-
+ 
 function loadGame() {
     const saved = localStorage.getItem("rngGameSave");
     if (saved) {
@@ -203,11 +204,11 @@ function loadGame() {
         activeLuck = data.activeLuck !== undefined ? data.activeLuck : luck;
         luckLevel = data.luckLevel || 1;
         luckCost = data.luckCost || 50;
-
+ 
         coinMult = data.coinMult || 1;
         coinMultLevel = data.coinMultLevel || 1;
         coinMultCost = data.coinMultCost || 100;
-
+ 
         totalRolls = data.totalRolls || 0;
         if (data.inventory) {
             for (let k in data.inventory) { if (inventory.hasOwnProperty(k)) inventory[k] = data.inventory[k]; }
@@ -216,31 +217,31 @@ function loadGame() {
     updateUIStats();
     updateAutoRollUnlockStatus();
 }
-
+ 
 function triggerAdminMessage(msg) {
     if (adminMessageTimeout) clearTimeout(adminMessageTimeout);
     adminMessage = msg;
     adminAnnouncementText.textContent = adminMessage;
     adminAnnouncementBanner.style.display = "block";
-
+ 
     adminMessageTimeout = setTimeout(() => {
         adminAnnouncementBanner.style.display = "none";
         adminMessage = "";
     }, 5000);
 }
-
+ 
 function updateUIStats() {
     coinCount.textContent = formatNumber(coins);
-
+ 
     let luckText = `x${activeLuck} (Max: x${luck})`;
     if (isLuckEventActive) luckText += ` [EVENT x${customLuckMultiplier}]`;
     luckDisplay.textContent = luckText;
-
+ 
     let moneyText = `🪙 Multiplicateur : x${coinMult}`;
     if (isMoneyEventActive) moneyText += ` [EVENT x${customMoneyMultiplier}]`;
     coinMultDisplay.textContent = moneyText;
 }
-
+ 
 function updateAutoRollUnlockStatus() {
     if (totalRolls >= 50) {
         autoRollButton.classList.remove("locked");
@@ -252,7 +253,7 @@ function updateAutoRollUnlockStatus() {
         autoRollRequirement.textContent = `${50 - totalRolls} rolls restants`;
     }
 }
-
+ 
 function showRarity(r) {
     const formattedOdds = "1/" + formatOdds(r.oddsNumber);
     result.innerHTML = `<div>${r.name}</div><small>${formattedOdds}</small>`;
@@ -268,7 +269,7 @@ function showRarity(r) {
         result.style.color = r.color;
     }
 }
-
+ 
 function updateInventory() {
     inventoryList.innerHTML = "";
     rarities.forEach(r => {
@@ -281,7 +282,7 @@ function updateInventory() {
         odds.textContent = ` (1/${formatOdds(r.oddsNumber)})`;
         odds.style.color = "#888";
         odds.style.marginLeft = "8px";
-
+ 
         if (r.name === "Laurentb1133") {
             name.style.background = "linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet)";
             name.style.backgroundSize = "300% 100%";
@@ -291,7 +292,7 @@ function updateInventory() {
         } else {
             name.style.color = r.color;
         }
-
+ 
         info.appendChild(name);
         info.appendChild(odds);
         const amount = document.createElement("span");
@@ -301,7 +302,7 @@ function updateInventory() {
         inventoryList.appendChild(item);
     });
 }
-
+ 
 function chooseRarity() {
     if (forcedRarity !== null) {
         const r = forcedRarity;
@@ -310,7 +311,7 @@ function chooseRarity() {
     }
     let totalLuck = activeLuck;
     if (isLuckEventActive) totalLuck *= customLuckMultiplier;
-
+ 
     const roll = Math.random();
     let cumulative = 0;
     for (let i = rarities.length - 1; i > 0; i--) {
@@ -320,12 +321,12 @@ function chooseRarity() {
     }
     return rarities[0];
 }
-
+ 
 function executeRoll(callback) {
     if (isRolling) return;
     isRolling = true;
     rollButton.disabled = true;
-
+ 
     const duration = 1200, start = Date.now();
     function animate() {
         const elapsed = Date.now() - start;
@@ -338,7 +339,7 @@ function executeRoll(callback) {
         }
     }
     animate();
-
+ 
     function finish() {
         const selected = chooseRarity();
         inventory[selected.name]++;
@@ -358,7 +359,7 @@ function executeRoll(callback) {
         updateInventory();
         updateAutoRollUnlockStatus();
         saveGame();
-
+ 
         isRolling = false;
         if (!isAutoRollActive) {
             rollButton.disabled = false;
@@ -366,12 +367,12 @@ function executeRoll(callback) {
         if (callback) callback();
     }
 }
-
+ 
 rollButton.addEventListener("click", () => {
     if (isAutoRollActive || isRolling) return;
     executeRoll();
 });
-
+ 
 function startAutoRoll() {
     if (!isAutoRollActive) return;
     executeRoll(() => {
@@ -381,25 +382,25 @@ function startAutoRoll() {
         }
     });
 }
-
+ 
 autoRollButton.addEventListener("click", () => {
     playSound("click");
     if (totalRolls < 50) {
         alert("50 rolls requis pour l'Auto-Roll !");
         return;
     }
-
+ 
     if (autoRollCooldown) return;
-
+ 
     isAutoRollActive = !isAutoRollActive;
-
+ 
     if (isAutoRollActive) {
         autoRollCooldown = true;
         autoRollButton.classList.add("active");
-
+ 
         let timeLeft = 5;
         autoRollButton.innerHTML = `AUTO-ROLL<br><small style='color:white;'>Sécurité (${timeLeft}s)</small>`;
-
+ 
         const cooldownInterval = setInterval(() => {
             timeLeft--;
             if (timeLeft > 0) {
@@ -412,7 +413,7 @@ autoRollButton.addEventListener("click", () => {
                 }
             }
         }, 1000);
-
+ 
         rollButton.disabled = true;
         if (autoRollTimeout) clearTimeout(autoRollTimeout);
         startAutoRoll();
@@ -423,21 +424,21 @@ autoRollButton.addEventListener("click", () => {
         if (autoRollTimeout) clearTimeout(autoRollTimeout);
     }
 });
-
+ 
 inventoryButton.addEventListener("click", () => { playSound("click"); updateInventory(); inventoryWindow.style.display = "flex"; });
 closeInventory.addEventListener("click", () => { playSound("click"); inventoryWindow.style.display = "none"; });
 shopButton.addEventListener("click", () => { playSound("click"); updateShopUI(); shopWindow.style.display = "flex"; });
 closeShop.addEventListener("click", () => { playSound("click"); shopWindow.style.display = "none"; });
 settingsButton.addEventListener("click", () => { playSound("click"); luckSlider.max = luck; luckSlider.value = activeLuck; currentLuckSetting.textContent = `x${activeLuck}`; settingsWindow.style.display = "flex"; });
 closeSettings.addEventListener("click", () => { playSound("click"); settingsWindow.style.display = "none"; });
-
+ 
 luckSlider.addEventListener("input", (e) => {
     activeLuck = parseInt(e.target.value);
     currentLuckSetting.textContent = `x${activeLuck}`;
     updateUIStats();
     saveGame();
 });
-
+ 
 resetButton.addEventListener("click", () => {
     playSound("click");
     if (confirm("Réinitialiser toute la progression ?")) {
@@ -445,23 +446,23 @@ resetButton.addEventListener("click", () => {
         location.reload();
     }
 });
-
+ 
 // --- Raccourci admin discret : Ctrl + Shift tenus, puis 4, 5, 6 dans l'ordre ---
 // (utilise e.code, indépendant de la disposition du clavier, ex: FR-CA)
 let adminComboBuffer = [];
 let adminComboTimer = null;
 const ADMIN_SEQUENCE = ["Digit4", "Digit5", "Digit6"];
-
+ 
 window.addEventListener("keydown", (e) => {
     if (!(e.ctrlKey && e.shiftKey)) { adminComboBuffer = []; return; }
     if (!ADMIN_SEQUENCE.includes(e.code)) return;
-
+ 
     adminComboBuffer.push(e.code);
     if (adminComboBuffer.length > ADMIN_SEQUENCE.length) adminComboBuffer.shift();
-
+ 
     if (adminComboTimer) clearTimeout(adminComboTimer);
     adminComboTimer = setTimeout(() => { adminComboBuffer = []; }, 1500);
-
+ 
     if (adminComboBuffer.join(",") === ADMIN_SEQUENCE.join(",")) {
         e.preventDefault();
         adminPage.style.display = "flex";
@@ -469,14 +470,14 @@ window.addEventListener("keydown", (e) => {
         adminComboBuffer = [];
     }
 });
-
+ 
 closeAdminPage.addEventListener("click", () => { adminPage.style.display = "none"; playSound("click"); });
-
+ 
 // ==========================================================================
 // CONNEXION ADMIN : le panneau admin reste caché tant que le compte
 // Firebase (créé dans la console) ne s'est pas connecté.
 // ==========================================================================
-
+ 
 function connectAdminAuth() {
     if (window.firebaseAdmin && window.firebaseAdmin.onAuthChange) {
         window.firebaseAdmin.onAuthChange((user) => {
@@ -495,7 +496,7 @@ function connectAdminAuth() {
     }
 }
 connectAdminAuth();
-
+ 
 adminLoginButton.addEventListener("click", () => {
     const email = adminEmailInput.value.trim();
     const password = adminPasswordInput.value;
@@ -514,22 +515,22 @@ adminLoginButton.addEventListener("click", () => {
             playSound("click");
         });
 });
-
+ 
 adminPasswordInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") adminLoginButton.click();
 });
-
+ 
 adminLogoutButton.addEventListener("click", () => {
     window.firebaseAdmin.logout();
     playSound("click");
 });
-
+ 
 // ==========================================================================
 // PANNEAU ADMIN : chaque action écrit dans Firebase au lieu d'agir en local.
 // L'effet réel est appliqué par handleAdminState() plus bas, pour TOUT
 // le monde (y compris toi), quand la valeur revient depuis Firebase.
 // ==========================================================================
-
+ 
 adminSendMsgButton.addEventListener("click", () => {
     const text = adminMessageInput.value.trim();
     if (text === "") return alert("Écris un message !");
@@ -539,7 +540,7 @@ adminSendMsgButton.addEventListener("click", () => {
     window.firebaseAdmin.push({ message: { text, id: Date.now() } });
     adminMessageInput.value = "";
 });
-
+ 
 adminClearMsgButton.addEventListener("click", () => {
     if (!window.firebaseAdmin) return;
     window.firebaseAdmin.clear("message");
@@ -547,7 +548,7 @@ adminClearMsgButton.addEventListener("click", () => {
     playSound("click");
     adminPage.style.display = "none";
 });
-
+ 
 adminStartMoneyEvent.addEventListener("click", () => {
     if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
     const mult = parseInt(adminMoneyMultiplierInput.value) || 1;
@@ -558,14 +559,14 @@ adminStartMoneyEvent.addEventListener("click", () => {
         moneyEvent: { mult, endsAt: Date.now() + durationSec * 1000 }
     });
 });
-
+ 
 adminStopMoneyEvent.addEventListener("click", () => {
     if (!window.firebaseAdmin) return;
     window.firebaseAdmin.clear("moneyEvent");
     playSound("click");
     adminPage.style.display = "none";
 });
-
+ 
 adminStartLuckEvent.addEventListener("click", () => {
     if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
     const mult = parseInt(adminLuckMultiplierInput.value) || 1;
@@ -576,14 +577,14 @@ adminStartLuckEvent.addEventListener("click", () => {
         luckEvent: { mult, endsAt: Date.now() + durationSec * 1000 }
     });
 });
-
+ 
 adminStopLuckEvent.addEventListener("click", () => {
     if (!window.firebaseAdmin) return;
     window.firebaseAdmin.clear("luckEvent");
     playSound("click");
     adminPage.style.display = "none";
 });
-
+ 
 adminForceRarityButton.addEventListener("click", () => {
     if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
     const found = rarities.find(r => r.name === adminRaritySelect.value);
@@ -593,17 +594,24 @@ adminForceRarityButton.addEventListener("click", () => {
         window.firebaseAdmin.push({ forcedRarity: { name: found.name, id: Date.now() } });
     }
 });
-
+ 
+adminCancelForceRarityButton.addEventListener("click", () => {
+    if (!window.firebaseAdmin) return;
+    window.firebaseAdmin.clear("forcedRarity");
+    playSound("click");
+    adminPage.style.display = "none";
+});
+ 
 // ==========================================================================
 // APPLICATION DES ÉTATS ADMIN REÇUS DE FIREBASE (pour tous les joueurs)
 // ==========================================================================
-
+ 
 let lastAppliedMessageId = null;
 let lastAppliedForcedRarityId = null;
-
+ 
 function applyMoneyEventFromState(moneyEvent) {
     if (moneyEventCountdownInterval) clearInterval(moneyEventCountdownInterval);
-
+ 
     if (!moneyEvent || moneyEvent.endsAt <= Date.now()) {
         isMoneyEventActive = false;
         customMoneyMultiplier = 1;
@@ -611,11 +619,11 @@ function applyMoneyEventFromState(moneyEvent) {
         updateUIStats();
         return;
     }
-
+ 
     isMoneyEventActive = true;
     customMoneyMultiplier = moneyEvent.mult;
     if (moneyEventBanner) { moneyEventBanner.style.display = "block"; moneyEventMult.textContent = customMoneyMultiplier; }
-
+ 
     function tick() {
         const remaining = Math.max(0, Math.round((moneyEvent.endsAt - Date.now()) / 1000));
         const m = Math.floor(remaining / 60), s = remaining % 60;
@@ -632,10 +640,10 @@ function applyMoneyEventFromState(moneyEvent) {
     moneyEventCountdownInterval = setInterval(tick, 1000);
     updateUIStats();
 }
-
+ 
 function applyLuckEventFromState(luckEvent) {
     if (luckEventCountdownInterval) clearInterval(luckEventCountdownInterval);
-
+ 
     if (!luckEvent || luckEvent.endsAt <= Date.now()) {
         isLuckEventActive = false;
         customLuckMultiplier = 1;
@@ -643,11 +651,11 @@ function applyLuckEventFromState(luckEvent) {
         updateUIStats();
         return;
     }
-
+ 
     isLuckEventActive = true;
     customLuckMultiplier = luckEvent.mult;
     if (luckEventBanner) { luckEventBanner.style.display = "block"; luckEventMult.textContent = customLuckMultiplier; }
-
+ 
     function tick() {
         const remaining = Math.max(0, Math.round((luckEvent.endsAt - Date.now()) / 1000));
         const m = Math.floor(remaining / 60), s = remaining % 60;
@@ -664,7 +672,7 @@ function applyLuckEventFromState(luckEvent) {
     luckEventCountdownInterval = setInterval(tick, 1000);
     updateUIStats();
 }
-
+ 
 function handleAdminState(state) {
     // Message global
     if (state.message && state.message.id !== lastAppliedMessageId) {
@@ -675,19 +683,23 @@ function handleAdminState(state) {
         adminAnnouncementBanner.style.display = "none";
         adminMessage = "";
     }
-
+ 
     // Events pièces / luck (pilotés entièrement par l'état reçu)
     applyMoneyEventFromState(state.moneyEvent);
     applyLuckEventFromState(state.luckEvent);
-
+ 
     // Rareté forcée : s'applique au prochain roll de CHAQUE joueur
     if (state.forcedRarity && state.forcedRarity.id !== lastAppliedForcedRarityId) {
         lastAppliedForcedRarityId = state.forcedRarity.id;
         const found = rarities.find(r => r.name === state.forcedRarity.name);
         if (found) forcedRarity = found;
+    } else if (!state.forcedRarity && lastAppliedForcedRarityId !== null) {
+        // L'admin a annulé : on retire l'effet chez ceux qui n'ont pas encore rollé
+        lastAppliedForcedRarityId = null;
+        forcedRarity = null;
     }
 }
-
+ 
 function connectAdminSync() {
     if (window.firebaseAdmin) {
         window.firebaseAdmin.subscribe(handleAdminState);
@@ -698,10 +710,10 @@ function connectAdminSync() {
     }
 }
 connectAdminSync();
-
+ 
 function updateShopUI() {
     coinCount.textContent = formatNumber(coins);
-
+ 
     luckLevelDisplay.textContent = `Niveau ${luckLevel} / ${maxLuckLevel}`;
     if (luckLevel >= maxLuckLevel) {
         luckPreviewDisplay.textContent = "Niveau max atteint !";
@@ -713,7 +725,7 @@ function updateShopUI() {
         buyLuckButton.textContent = `Acheter (${formatNumber(luckCost)} 🪙)`;
         buyLuckButton.style.background = "#5865f2";
     }
-
+ 
     coinMultLevelDisplay.textContent = `Niveau ${coinMultLevel} / ${maxCoinMultLevel}`;
     if (coinMultLevel >= maxCoinMultLevel) {
         coinMultPreviewDisplay.textContent = "Niveau max atteint !";
@@ -726,7 +738,7 @@ function updateShopUI() {
         buyCoinMultButton.style.background = "#ffb300";
     }
 }
-
+ 
 buyLuckButton.addEventListener("click", () => {
     if (luckLevel >= maxLuckLevel) return;
     if (coins >= luckCost) {
@@ -743,7 +755,7 @@ buyLuckButton.addEventListener("click", () => {
         alert("Pas assez de pièces !");
     }
 });
-
+ 
 buyCoinMultButton.addEventListener("click", () => {
     if (coinMultLevel >= maxCoinMultLevel) return;
     if (coins >= coinMultCost) {
@@ -759,5 +771,5 @@ buyCoinMultButton.addEventListener("click", () => {
         alert("Pas assez de pièces !");
     }
 });
-
+ 
 loadGame();
