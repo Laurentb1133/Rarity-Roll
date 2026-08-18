@@ -646,7 +646,7 @@ adminCancelForceRarityButton.addEventListener("click", () => {
 
 adminStartCountdown.addEventListener("click", () => {
     const message = adminCountdownMessageInput.value.trim() || "Admin Abuse imminent !";
-    const durationSec = parseInt(adminCountdownDurationInput.value) || 10;
+    const durationSec = (parseInt(adminCountdownDurationInput.value) || 1) * 60;
     playSound("success");
     adminPage.style.display = "none";
     const countdownData = { message, endsAt: Date.now() + durationSec * 1000 };
@@ -755,7 +755,8 @@ function applyCountdownFromState(countdown) {
 
     function tick() {
         const remaining = Math.max(0, Math.ceil((countdown.endsAt - Date.now()) / 1000));
-        if (adminCountdownNumber) adminCountdownNumber.textContent = remaining;
+        const minutesLeft = Math.ceil(remaining / 60);
+        if (adminCountdownNumber) adminCountdownNumber.textContent = `${minutesLeft}m`;
         if (remaining <= 0) {
             clearInterval(adminCountdownInterval);
             if (adminCountdownBanner) adminCountdownBanner.style.display = "none";
