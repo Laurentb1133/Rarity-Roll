@@ -102,6 +102,21 @@ let luckEventCountdownInterval = null;
 const inventory = {};
 rarities.forEach(r => inventory[r.name] = 0);
 
+// ==========================================================================
+// ACHIEVEMENTS
+// ==========================================================================
+const achievements = [
+    {
+        id: "first_roll",
+        name: "Premier Roll",
+        description: "Fais ton premier roll.",
+        reward: 50,
+        check: () => totalRolls >= 1
+    }
+];
+const unlockedAchievements = {};
+achievements.forEach(a => unlockedAchievements[a.id] = false);
+
 const rollButton = document.getElementById("rollButton");
 const autoRollButton = document.getElementById("autoRollButton");
 const autoRollRequirement = document.getElementById("autoRollRequirement");
@@ -135,6 +150,11 @@ const buyCoinMultButton = document.getElementById("buyCoinMultButton");
 const coinMultLevelDisplay = document.getElementById("coinMultLevelDisplay");
 const coinMultCostDisplay = document.getElementById("coinMultCostDisplay");
 const coinMultPreviewDisplay = document.getElementById("coinMultPreviewDisplay");
+
+const achievementsButton = document.getElementById("achievementsButton");
+const achievementsWindow = document.getElementById("achievementsWindow");
+const closeAchievements = document.getElementById("closeAchievements");
+const achievementsList = document.getElementById("achievementsList");
 
 const settingsButton = document.getElementById("settingsButton");
 const settingsWindow = document.getElementById("settingsWindow");
@@ -201,7 +221,7 @@ function saveGame() {
     localStorage.setItem("rngGameSave", JSON.stringify({
         coins, luck, activeLuck, luckLevel, luckCost,
         coinMult, coinMultLevel, coinMultCost,
-        totalRolls, inventory
+        totalRolls, inventory, unlockedAchievements
     }));
 }
 
@@ -222,6 +242,11 @@ function loadGame() {
         totalRolls = data.totalRolls || 0;
         if (data.inventory) {
             for (let k in data.inventory) { if (inventory.hasOwnProperty(k)) inventory[k] = data.inventory[k]; }
+        }
+        if (data.unlockedAchievements) {
+            for (let k in data.unlockedAchievements) {
+                if (unlockedAchievements.hasOwnProperty(k)) unlockedAchievements[k] = data.unlockedAchievements[k];
+            }
         }
     }
     updateUIStats();
@@ -313,6 +338,48 @@ function updateInventory() {
     });
 }
 
+function checkAchievements() {
+    achievements.forEach(a => {
+        if (!unlockedAchievements[a.id] && a.check()) {
+            unlockedAchievements[a.id] = true;
+            coins += a.reward;
+            updateUIStats();
+            triggerAdminMessage(`🏆 Achievement débloqué : ${a.name} (+${formatNumber(a.reward)} 🪙)`);
+            playSound("success");
+            saveGame();
+        }
+    });
+}
+
+function updateAchievementsUI() {
+    achievementsList.innerHTML = "";
+    achievements.forEach(a => {
+        const item = document.createElement("div");
+        item.className = "inventoryItem";
+        if (!unlockedAchievements[a.id]) item.style.opacity = "0.5";
+
+        const info = document.createElement("div");
+        const name = document.createElement("span");
+        name.textContent = (unlockedAchievements[a.id] ? "✅ " : "🔒 ") + a.name;
+        name.style.fontWeight = "bold";
+        const desc = document.createElement("small");
+        desc.textContent = ` — ${a.description}`;
+        desc.style.color = "#888";
+        desc.style.marginLeft = "6px";
+
+        info.appendChild(name);
+        info.appendChild(desc);
+
+        const reward = document.createElement("span");
+        reward.textContent = `+${formatNumber(a.reward)} 🪙`;
+        reward.style.color = "#ffd700";
+
+        item.appendChild(info);
+        item.appendChild(reward);
+        achievementsList.appendChild(item);
+    });
+}
+
 function chooseRarity() {
     if (forcedRarity !== null) {
         const r = forcedRarity;
@@ -368,6 +435,7 @@ function executeRoll(callback) {
         }
         updateInventory();
         updateAutoRollUnlockStatus();
+        checkAchievements();
         saveGame();
 
         isRolling = false;
@@ -439,6 +507,8 @@ inventoryButton.addEventListener("click", () => { playSound("click"); updateInve
 closeInventory.addEventListener("click", () => { playSound("click"); inventoryWindow.style.display = "none"; });
 shopButton.addEventListener("click", () => { playSound("click"); updateShopUI(); shopWindow.style.display = "flex"; });
 closeShop.addEventListener("click", () => { playSound("click"); shopWindow.style.display = "none"; });
+achievementsButton.addEventListener("click", () => { playSound("click"); updateAchievementsUI(); achievementsWindow.style.display = "flex"; });
+closeAchievements.addEventListener("click", () => { playSound("click"); achievementsWindow.style.display = "none"; });
 settingsButton.addEventListener("click", () => { playSound("click"); luckSlider.max = luck; luckSlider.value = activeLuck; currentLuckSetting.textContent = `x${activeLuck}`; settingsWindow.style.display = "flex"; });
 closeSettings.addEventListener("click", () => { playSound("click"); settingsWindow.style.display = "none"; });
 
@@ -745,12 +815,14 @@ function applyCountdownFromState(countdown) {
 
     if (!countdown || countdown.endsAt <= Date.now()) {
         if (adminCountdownBanner) adminCountdownBanner.style.display = "none";
+        document.body.style.paddingTop = "";
         return;
     }
 
     if (adminCountdownBanner) {
         adminCountdownBanner.style.display = "block";
         adminCountdownLabel.textContent = countdown.message || "Admin Abuse imminent !";
+        document.body.style.paddingTop = "90px";
     }
 
     function tick() {
@@ -760,6 +832,7 @@ function applyCountdownFromState(countdown) {
         if (remaining <= 0) {
             clearInterval(adminCountdownInterval);
             if (adminCountdownBanner) adminCountdownBanner.style.display = "none";
+            document.body.style.paddingTop = "";
         }
     }
     tick();
@@ -867,3 +940,4 @@ buyCoinMultButton.addEventListener("click", () => {
 });
 
 loadGame();
+checkAchievements();
