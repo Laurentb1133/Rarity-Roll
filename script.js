@@ -153,6 +153,15 @@ const adminLoginButton = document.getElementById("adminLoginButton");
 const adminLoginError = document.getElementById("adminLoginError");
 const adminLogoutButton = document.getElementById("adminLogoutButton");
 const adminTestModeToggle = document.getElementById("adminTestModeToggle");
+
+const adminCountdownBanner = document.getElementById("adminCountdownBanner");
+const adminCountdownLabel = document.getElementById("adminCountdownLabel");
+const adminCountdownNumber = document.getElementById("adminCountdownNumber");
+const adminCountdownMessageInput = document.getElementById("adminCountdownMessageInput");
+const adminCountdownDurationInput = document.getElementById("adminCountdownDurationInput");
+const adminStartCountdown = document.getElementById("adminStartCountdown");
+const adminStopCountdown = document.getElementById("adminStopCountdown");
+let adminCountdownInterval = null;
 const adminMessageInput = document.getElementById("adminMessageInput");
 const adminSendMsgButton = document.getElementById("adminSendMsgButton");
 const adminClearMsgButton = document.getElementById("adminClearMsgButton");
@@ -635,6 +644,31 @@ adminCancelForceRarityButton.addEventListener("click", () => {
     }
 });
 
+adminStartCountdown.addEventListener("click", () => {
+    const message = adminCountdownMessageInput.value.trim() || "Admin Abuse imminent !";
+    const durationSec = parseInt(adminCountdownDurationInput.value) || 10;
+    playSound("success");
+    adminPage.style.display = "none";
+    const countdownData = { message, endsAt: Date.now() + durationSec * 1000 };
+    if (adminTestModeToggle.checked) {
+        applyCountdownFromState(countdownData);
+    } else {
+        if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+        window.firebaseAdmin.push({ countdown: countdownData });
+    }
+});
+
+adminStopCountdown.addEventListener("click", () => {
+    playSound("click");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        applyCountdownFromState(null);
+    } else {
+        if (!window.firebaseAdmin) return;
+        window.firebaseAdmin.clear("countdown");
+    }
+});
+
 // ==========================================================================
 // APPLICATION DES ÉTATS ADMIN REÇUS DE FIREBASE (pour tous les joueurs)
 // ==========================================================================
@@ -706,6 +740,31 @@ function applyLuckEventFromState(luckEvent) {
     updateUIStats();
 }
 
+function applyCountdownFromState(countdown) {
+    if (adminCountdownInterval) clearInterval(adminCountdownInterval);
+
+    if (!countdown || countdown.endsAt <= Date.now()) {
+        if (adminCountdownBanner) adminCountdownBanner.style.display = "none";
+        return;
+    }
+
+    if (adminCountdownBanner) {
+        adminCountdownBanner.style.display = "block";
+        adminCountdownLabel.textContent = countdown.message || "Admin Abuse imminent !";
+    }
+
+    function tick() {
+        const remaining = Math.max(0, Math.ceil((countdown.endsAt - Date.now()) / 1000));
+        if (adminCountdownNumber) adminCountdownNumber.textContent = remaining;
+        if (remaining <= 0) {
+            clearInterval(adminCountdownInterval);
+            if (adminCountdownBanner) adminCountdownBanner.style.display = "none";
+        }
+    }
+    tick();
+    adminCountdownInterval = setInterval(tick, 1000);
+}
+
 function handleAdminState(state) {
     // Message global
     if (state.message && state.message.id !== lastAppliedMessageId) {
@@ -720,6 +779,7 @@ function handleAdminState(state) {
     // Events pièces / luck (pilotés entièrement par l'état reçu)
     applyMoneyEventFromState(state.moneyEvent);
     applyLuckEventFromState(state.luckEvent);
+    applyCountdownFromState(state.countdown);
 
     // Rareté forcée : s'applique au prochain roll de CHAQUE joueur
     if (state.forcedRarity && state.forcedRarity.id !== lastAppliedForcedRarityId) {
