@@ -11,7 +11,7 @@
 <body>
 
     <!-- Bannière compte à rebours Admin Abuse (overlay global) -->
-    <div id="adminCountdownBanner" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #ff006e, #8338ec); color: white; font-weight: bold; padding: 15px 30px; border-radius: 12px; text-align: center; z-index: 10000; box-shadow: 0 4px 20px rgba(255, 0, 110, 0.5);">
+    <div id="adminCountdownBanner" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #ff006e, #8338ec); color: white; font-weight: bold; padding: 15px 30px; border-radius: 12px; text-align: center; z-index: 9000; box-shadow: 0 4px 20px rgba(255, 0, 110, 0.5);">
         <div id="adminCountdownLabel" style="font-size: 14px; margin-bottom: 4px;"></div>
         <div id="adminCountdownNumber" style="font-size: 32px; line-height: 1;">10</div>
     </div>
@@ -64,6 +64,7 @@
 
         <button id="inventoryButton">🎒 INVENTAIRE</button>
         <button id="shopButton">🛒 BOUTIQUE</button>
+        <button id="achievementsButton">🏆 SUCCÈS</button>
         <button id="settingsButton">⚙️ PARAMÈTRES</button>
 
     </div>
@@ -117,6 +118,17 @@
                 </div>
 
             </div>
+        </div>
+    </div>
+
+    <!-- Fenêtre Achievements -->
+    <div id="achievementsWindow" class="inventoryWindow">
+        <div class="inventoryBox">
+            <div class="inventoryHeader">
+                <h2>🏆 Achievements</h2>
+                <button id="closeAchievements">✕</button>
+            </div>
+            <div id="achievementsList"></div>
         </div>
     </div>
 
