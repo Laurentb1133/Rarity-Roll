@@ -27,6 +27,12 @@
             <div id="adminAnnouncementText" style="font-size: 16px;"></div>
         </div>
 
+        <!-- Bannière Achievement débloqué -->
+        <div id="achievementUnlockBanner" style="display: none; background: linear-gradient(90deg, #ffd700, #ffb300); color: #111; font-weight: bold; padding: 12px 20px; border-radius: 10px; font-size: 15px; text-align: center; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); animation: pulse 1.5s infinite;">
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #5c4400;">🏆 Achievement débloqué</div>
+            <div id="achievementUnlockText" style="font-size: 16px;"></div>
+        </div>
+
         <!-- Bannières d'événements -->
         <div id="eventBannersContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
             <div id="moneyEventBanner" style="display: none; background: #ffb300; color: #111; font-weight: bold; padding: 8px 15px; border-radius: 8px; font-size: 14px; text-align: center;">
@@ -125,7 +131,7 @@
     <div id="achievementsWindow" class="inventoryWindow">
         <div class="inventoryBox">
             <div class="inventoryHeader">
-                <h2>🏆 Achievements</h2>
+                <h2>🏆 Achievements <span id="achievementsProgress" style="font-size: 12px; color: #aaa; font-weight: normal;"></span></h2>
                 <button id="closeAchievements">✕</button>
             </div>
             <div id="achievementsList"></div>
@@ -281,6 +287,17 @@
                         <button id="adminStopCountdown" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
                     </div>
                     <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">💡 Affiche un compte à rebours en haut de l'écran pour tout le monde. Déclenche ton event/message juste avant qu'il arrive à zéro pour l'effet de surprise.</p>
+                </div>
+
+                <!-- Débloquer un Succès -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #ffd700;">🏆 Débloquer un Succès</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Succès :</label>
+                        <select id="adminAchievementSelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
+                    </div>
+                    <button id="adminUnlockAchievementButton" style="width: 100%; padding: 12px; background: #ffd700; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Débloquer 🎯</button>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ Donne le succès (et sa récompense) directement, sans avoir à remplir la condition.</p>
                 </div>
 
             </div>
