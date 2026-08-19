@@ -262,6 +262,7 @@ const adminForceRarityButton = document.getElementById("adminForceRarityButton")
 const adminCancelForceRarityButton = document.getElementById("adminCancelForceRarityButton");
 const adminAchievementSelect = document.getElementById("adminAchievementSelect");
 const adminUnlockAchievementButton = document.getElementById("adminUnlockAchievementButton");
+const adminCancelUnlockAchievementButton = document.getElementById("adminCancelUnlockAchievementButton");
 
 const moneyEventBanner = document.getElementById("moneyEventBanner");
 const moneyEventMult = document.getElementById("moneyEventMult");
@@ -428,6 +429,14 @@ function forceUnlockAchievement(id) {
     triggerAchievementBanner(`${a.name} (+${formatNumber(a.reward)} 🪙)`);
     playSound("success");
     saveGame();
+}
+
+function forceLockAchievement(id) {
+    const a = achievements.find(ach => ach.id === id);
+    if (!a || !unlockedAchievements[id]) return;
+    unlockedAchievements[id] = false;
+    saveGame();
+    if (achievementsWindow.style.display !== "none") updateAchievementsUI();
 }
 
 let achievementTooltipEl = document.getElementById("achievementTooltipGlobal");
@@ -859,6 +868,21 @@ adminUnlockAchievementButton.addEventListener("click", () => {
     } else {
         if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
         window.firebaseAdmin.push({ unlockAchievement: { id, requestId: Date.now() } });
+    }
+});
+
+adminCancelUnlockAchievementButton.addEventListener("click", () => {
+    const id = adminAchievementSelect.value;
+    if (!id) return;
+    playSound("click");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        forceLockAchievement(id);
+    } else {
+        if (!window.firebaseAdmin) return;
+        // On retire juste l'état "unlockAchievement" de Firebase : les joueurs déjà
+        // débloqués gardent leur succès, mais les nouveaux arrivants ne le recevront plus.
+        window.firebaseAdmin.clear("unlockAchievement");
     }
 });
 
