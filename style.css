@@ -197,7 +197,7 @@ h1 {
     color: white;
 }
 
-#inventoryList, #achievementsList {
+#inventoryList {
     max-height: 400px;
     overflow-y: auto;
     padding-right: 4px;
@@ -212,4 +212,103 @@ h1 {
     background: #292929;
     border-radius: 8px;
     font-size: 15px;
+}
+
+/* --- Achievements (cercles + tooltip) --- */
+#achievementsList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    padding: 10px 4px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.achievementCircle {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #292929;
+    border: 2px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    cursor: default;
+    transition: transform 0.15s;
+}
+
+.achievementCircle:hover {
+    transform: scale(1.1);
+    z-index: 5;
+}
+
+.achievementCircle.locked {
+    filter: grayscale(1);
+    opacity: 0.45;
+}
+
+.achievementCircle.unlocked {
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.45);
+}
+
+.achievementBadge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #5865f2;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #202020;
+}
+
+.achievementTooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: fixed;
+    background: #111;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 10px 12px;
+    width: 170px;
+    font-size: 12px;
+    text-align: center;
+    z-index: 99999;
+    transition: opacity 0.1s;
+    pointer-events: none;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.achievementTooltip.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.achievementTooltip .tName {
+    display: block;
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 4px;
+}
+
+.achievementTooltip .tDesc {
+    display: block;
+    color: #ccc;
+    margin-bottom: 4px;
+}
+
+.achievementTooltip .tReward {
+    display: block;
+    color: #5865f2;
+    font-weight: bold;
 }
