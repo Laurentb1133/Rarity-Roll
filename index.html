@@ -271,6 +271,20 @@
                     <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain roll de <strong>chaque</strong> joueur connecté. "Annuler" retire l'effet pour ceux qui n'ont pas encore rollé.</p>
                 </div>
 
+                <!-- Débloquer un Succès -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #ffd700;">🏆 Débloquer un Succès</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Succès :</label>
+                        <select id="adminAchievementSelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminUnlockAchievementButton" style="flex: 1; padding: 12px; background: #ffd700; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Débloquer 🎯</button>
+                        <button id="adminCancelUnlockAchievementButton" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
+                    </div>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ Donne le succès (et sa récompense) directement, sans avoir à remplir la condition. "Annuler" empêche les joueurs qui n'ont pas encore reçu le succès de l'obtenir — ça ne retire rien à ceux qui l'ont déjà.</p>
+                </div>
+
                 <!-- Compte à rebours Admin Abuse -->
                 <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px; grid-column: 1 / -1;">
                     <h3 style="margin-top: 0; color: #ff006e;">⏳ Compte à rebours Admin Abuse</h3>
@@ -287,17 +301,6 @@
                         <button id="adminStopCountdown" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
                     </div>
                     <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">💡 Affiche un compte à rebours en haut de l'écran pour tout le monde. Déclenche ton event/message juste avant qu'il arrive à zéro pour l'effet de surprise.</p>
-                </div>
-
-                <!-- Débloquer un Succès -->
-                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
-                    <h3 style="margin-top: 0; color: #ffd700;">🏆 Débloquer un Succès</h3>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Succès :</label>
-                        <select id="adminAchievementSelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
-                    </div>
-                    <button id="adminUnlockAchievementButton" style="width: 100%; padding: 12px; background: #ffd700; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Débloquer 🎯</button>
-                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ Donne le succès (et sa récompense) directement, sans avoir à remplir la condition.</p>
                 </div>
 
             </div>
