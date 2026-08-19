@@ -111,7 +111,53 @@ const achievements = [
         name: "Premier Roll",
         description: "Fais ton premier roll.",
         reward: 50,
+        icon: "🎲",
+        badge: "1",
         check: () => totalRolls >= 1
+    },
+    {
+        id: "10_rolls",
+        name: "10 Rolls",
+        description: "Fais 10 rolls.",
+        reward: 200,
+        icon: "🎲",
+        badge: "2",
+        check: () => totalRolls >= 10
+    },
+    {
+        id: "100_rolls",
+        name: "100 Rolls",
+        description: "Fais 100 rolls.",
+        reward: 1000,
+        icon: "🎲",
+        badge: "3",
+        check: () => totalRolls >= 100
+    },
+    {
+        id: "1000_rolls",
+        name: "1000 Rolls",
+        description: "Fais 1000 rolls.",
+        reward: 5000,
+        icon: "🎲",
+        badge: "4",
+        check: () => totalRolls >= 1000
+    },
+    {
+        id: "10000_rolls",
+        name: "10 000 Rolls",
+        description: "Fais 10 000 rolls.",
+        reward: 25000,
+        icon: "🎲",
+        badge: "5",
+        check: () => totalRolls >= 10000
+    },
+    {
+        id: "auto_roll_unlocked",
+        name: "Auto-Roll Débloqué",
+        description: "Débloque l'Auto-Roll (50 rolls).",
+        reward: 300,
+        icon: "🤖",
+        check: () => totalRolls >= 50
     }
 ];
 const unlockedAchievements = {};
@@ -155,6 +201,19 @@ const achievementsButton = document.getElementById("achievementsButton");
 const achievementsWindow = document.getElementById("achievementsWindow");
 const closeAchievements = document.getElementById("closeAchievements");
 const achievementsList = document.getElementById("achievementsList");
+const achievementsProgress = document.getElementById("achievementsProgress");
+const achievementUnlockBanner = document.getElementById("achievementUnlockBanner");
+const achievementUnlockText = document.getElementById("achievementUnlockText");
+let achievementUnlockTimeout = null;
+
+function triggerAchievementBanner(text) {
+    if (achievementUnlockTimeout) clearTimeout(achievementUnlockTimeout);
+    achievementUnlockText.textContent = text;
+    achievementUnlockBanner.style.display = "block";
+    achievementUnlockTimeout = setTimeout(() => {
+        achievementUnlockBanner.style.display = "none";
+    }, 5000);
+}
 
 const settingsButton = document.getElementById("settingsButton");
 const settingsWindow = document.getElementById("settingsWindow");
@@ -201,6 +260,8 @@ const adminStopLuckEvent = document.getElementById("adminStopLuckEvent");
 const adminRaritySelect = document.getElementById("adminRaritySelect");
 const adminForceRarityButton = document.getElementById("adminForceRarityButton");
 const adminCancelForceRarityButton = document.getElementById("adminCancelForceRarityButton");
+const adminAchievementSelect = document.getElementById("adminAchievementSelect");
+const adminUnlockAchievementButton = document.getElementById("adminUnlockAchievementButton");
 
 const moneyEventBanner = document.getElementById("moneyEventBanner");
 const moneyEventMult = document.getElementById("moneyEventMult");
@@ -215,6 +276,13 @@ rarities.forEach(r => {
     option.value = r.name;
     option.textContent = `${r.name} (1/${formatOdds(r.oddsNumber)})`;
     adminRaritySelect.appendChild(option);
+});
+
+achievements.forEach(a => {
+    const option = document.createElement("option");
+    option.value = a.id;
+    option.textContent = a.name;
+    adminAchievementSelect.appendChild(option);
 });
 
 function saveGame() {
@@ -344,40 +412,82 @@ function checkAchievements() {
             unlockedAchievements[a.id] = true;
             coins += a.reward;
             updateUIStats();
-            triggerAdminMessage(`🏆 Achievement débloqué : ${a.name} (+${formatNumber(a.reward)} 🪙)`);
+            triggerAchievementBanner(`${a.name} (+${formatNumber(a.reward)} 🪙)`);
             playSound("success");
             saveGame();
         }
     });
 }
 
+function forceUnlockAchievement(id) {
+    const a = achievements.find(ach => ach.id === id);
+    if (!a || unlockedAchievements[id]) return;
+    unlockedAchievements[id] = true;
+    coins += a.reward;
+    updateUIStats();
+    triggerAchievementBanner(`${a.name} (+${formatNumber(a.reward)} 🪙)`);
+    playSound("success");
+    saveGame();
+}
+
+let achievementTooltipEl = document.getElementById("achievementTooltipGlobal");
+if (!achievementTooltipEl) {
+    achievementTooltipEl = document.createElement("div");
+    achievementTooltipEl.id = "achievementTooltipGlobal";
+    achievementTooltipEl.className = "achievementTooltip";
+    achievementTooltipEl.innerHTML = `
+        <span class="tName"></span>
+        <span class="tDesc"></span>
+        <span class="tReward"></span>
+    `;
+    document.body.appendChild(achievementTooltipEl);
+}
+
+function showAchievementTooltip(circle, a, unlocked) {
+    achievementTooltipEl.querySelector(".tName").textContent = (unlocked ? "✅ " : "🔒 ") + a.name;
+    achievementTooltipEl.querySelector(".tDesc").textContent = a.description;
+    achievementTooltipEl.querySelector(".tReward").textContent = `+${formatNumber(a.reward)} 🪙`;
+
+    const rect = circle.getBoundingClientRect();
+    achievementTooltipEl.style.left = `${rect.left + rect.width / 2}px`;
+    achievementTooltipEl.style.top = `${rect.top - 10}px`;
+    achievementTooltipEl.style.transform = "translate(-50%, -100%)";
+    achievementTooltipEl.classList.add("visible");
+}
+
+function hideAchievementTooltip() {
+    achievementTooltipEl.classList.remove("visible");
+}
+
 function updateAchievementsUI() {
     achievementsList.innerHTML = "";
     achievements.forEach(a => {
-        const item = document.createElement("div");
-        item.className = "inventoryItem";
-        if (!unlockedAchievements[a.id]) item.style.opacity = "0.5";
+        const unlocked = unlockedAchievements[a.id];
 
-        const info = document.createElement("div");
-        const name = document.createElement("span");
-        name.textContent = (unlockedAchievements[a.id] ? "✅ " : "🔒 ") + a.name;
-        name.style.fontWeight = "bold";
-        const desc = document.createElement("small");
-        desc.textContent = ` — ${a.description}`;
-        desc.style.color = "#888";
-        desc.style.marginLeft = "6px";
+        const circle = document.createElement("div");
+        circle.className = "achievementCircle " + (unlocked ? "unlocked" : "locked");
 
-        info.appendChild(name);
-        info.appendChild(desc);
+        const icon = document.createElement("span");
+        icon.textContent = a.icon || "🏆";
+        circle.appendChild(icon);
 
-        const reward = document.createElement("span");
-        reward.textContent = `+${formatNumber(a.reward)} 🪙`;
-        reward.style.color = "#ffd700";
+        if (a.badge) {
+            const badge = document.createElement("span");
+            badge.className = "achievementBadge";
+            badge.textContent = a.badge;
+            circle.appendChild(badge);
+        }
 
-        item.appendChild(info);
-        item.appendChild(reward);
-        achievementsList.appendChild(item);
+        circle.addEventListener("mouseenter", () => showAchievementTooltip(circle, a, unlocked));
+        circle.addEventListener("mouseleave", hideAchievementTooltip);
+
+        achievementsList.appendChild(circle);
     });
+
+    const total = achievements.length;
+    const unlockedCount = achievements.filter(a => unlockedAchievements[a.id]).length;
+    const percent = total > 0 ? Math.round((unlockedCount / total) * 100) : 0;
+    if (achievementsProgress) achievementsProgress.textContent = `— ${percent}% (${unlockedCount}/${total})`;
 }
 
 function chooseRarity() {
@@ -508,7 +618,7 @@ closeInventory.addEventListener("click", () => { playSound("click"); inventoryWi
 shopButton.addEventListener("click", () => { playSound("click"); updateShopUI(); shopWindow.style.display = "flex"; });
 closeShop.addEventListener("click", () => { playSound("click"); shopWindow.style.display = "none"; });
 achievementsButton.addEventListener("click", () => { playSound("click"); updateAchievementsUI(); achievementsWindow.style.display = "flex"; });
-closeAchievements.addEventListener("click", () => { playSound("click"); achievementsWindow.style.display = "none"; });
+closeAchievements.addEventListener("click", () => { playSound("click"); achievementsWindow.style.display = "none"; hideAchievementTooltip(); });
 settingsButton.addEventListener("click", () => { playSound("click"); luckSlider.max = luck; luckSlider.value = activeLuck; currentLuckSetting.textContent = `x${activeLuck}`; settingsWindow.style.display = "flex"; });
 closeSettings.addEventListener("click", () => { playSound("click"); settingsWindow.style.display = "none"; });
 
@@ -739,12 +849,26 @@ adminStopCountdown.addEventListener("click", () => {
     }
 });
 
+adminUnlockAchievementButton.addEventListener("click", () => {
+    const id = adminAchievementSelect.value;
+    if (!id) return;
+    playSound("success");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        forceUnlockAchievement(id);
+    } else {
+        if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+        window.firebaseAdmin.push({ unlockAchievement: { id, requestId: Date.now() } });
+    }
+});
+
 // ==========================================================================
 // APPLICATION DES ÉTATS ADMIN REÇUS DE FIREBASE (pour tous les joueurs)
 // ==========================================================================
 
 let lastAppliedMessageId = null;
 let lastAppliedForcedRarityId = null;
+let lastAppliedUnlockAchievementRequestId = null;
 
 function applyMoneyEventFromState(moneyEvent) {
     if (moneyEventCountdownInterval) clearInterval(moneyEventCountdownInterval);
@@ -864,6 +988,12 @@ function handleAdminState(state) {
         // L'admin a annulé : on retire l'effet chez ceux qui n'ont pas encore rollé
         lastAppliedForcedRarityId = null;
         forcedRarity = null;
+    }
+
+    // Déblocage forcé d'un succès (une seule fois par requestId)
+    if (state.unlockAchievement && state.unlockAchievement.requestId !== lastAppliedUnlockAchievementRequestId) {
+        lastAppliedUnlockAchievementRequestId = state.unlockAchievement.requestId;
+        forceUnlockAchievement(state.unlockAchievement.id);
     }
 }
 
