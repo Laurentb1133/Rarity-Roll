@@ -105,6 +105,10 @@ rarities.forEach(r => inventory[r.name] = 0);
 // ==========================================================================
 // ACHIEVEMENTS
 // ==========================================================================
+function hasRarityAtOrAbove(oddsThreshold) {
+    return rarities.some(r => r.oddsNumber >= oddsThreshold && inventory[r.name] > 0);
+}
+
 const achievements = [
     {
         id: "first_roll",
@@ -158,6 +162,184 @@ const achievements = [
         reward: 300,
         icon: "🤖",
         check: () => totalRolls >= 50
+    },
+    {
+        id: "odds_100",
+        name: "1/100",
+        description: "Obtiens une rareté de 1/100 ou plus rare.",
+        reward: 300,
+        icon: "💎",
+        badge: "1",
+        check: () => hasRarityAtOrAbove(100)
+    },
+    {
+        id: "odds_1000",
+        name: "1/1 000",
+        description: "Obtiens une rareté de 1/1 000 ou plus rare.",
+        reward: 1000,
+        icon: "💎",
+        badge: "2",
+        check: () => hasRarityAtOrAbove(1000)
+    },
+    {
+        id: "odds_1m",
+        name: "1/1M",
+        description: "Obtiens une rareté de 1/1 000 000 ou plus rare.",
+        reward: 10000,
+        icon: "💎",
+        badge: "3",
+        check: () => hasRarityAtOrAbove(1000000)
+    },
+    {
+        id: "odds_1b",
+        name: "1/1B",
+        description: "Obtiens une rareté de 1/1 000 000 000 ou plus rare.",
+        reward: 100000,
+        icon: "💎",
+        badge: "4",
+        check: () => hasRarityAtOrAbove(1000000000)
+    },
+    {
+        id: "odds_1t",
+        name: "1/1T",
+        description: "Obtiens une rareté de 1/1 000 000 000 000 ou plus rare.",
+        reward: 1000000,
+        icon: "💎",
+        badge: "5",
+        check: () => hasRarityAtOrAbove(1000000000000)
+    },
+    {
+        id: "coins_100",
+        name: "100 Pièces",
+        description: "Possède au moins 100 pièces.",
+        reward: 50,
+        icon: "🪙",
+        badge: "1",
+        check: () => coins >= 100
+    },
+    {
+        id: "coins_10k",
+        name: "10 000 Pièces",
+        description: "Possède au moins 10 000 pièces.",
+        reward: 500,
+        icon: "🪙",
+        badge: "2",
+        check: () => coins >= 10000
+    },
+    {
+        id: "coins_1m",
+        name: "1M Pièces",
+        description: "Possède au moins 1 000 000 pièces.",
+        reward: 5000,
+        icon: "🪙",
+        badge: "3",
+        check: () => coins >= 1000000
+    },
+    {
+        id: "coins_1b",
+        name: "1B Pièces",
+        description: "Possède au moins 1 000 000 000 pièces.",
+        reward: 50000,
+        icon: "🪙",
+        badge: "4",
+        check: () => coins >= 1000000000
+    },
+    {
+        id: "coins_1t",
+        name: "1T Pièces",
+        description: "Possède au moins 1 000 000 000 000 pièces.",
+        reward: 500000,
+        icon: "🪙",
+        badge: "5",
+        check: () => coins >= 1000000000000
+    },
+    {
+        id: "luck_upg_1",
+        name: "1 Amélioration Chance",
+        description: "Achète 1 amélioration de Chance dans la boutique.",
+        reward: 100,
+        icon: "🍀",
+        badge: "1",
+        check: () => (luckLevel - 1) >= 1
+    },
+    {
+        id: "luck_upg_10",
+        name: "10 Améliorations Chance",
+        description: "Achète 10 améliorations de Chance dans la boutique.",
+        reward: 800,
+        icon: "🍀",
+        badge: "2",
+        check: () => (luckLevel - 1) >= 10
+    },
+    {
+        id: "luck_upg_25",
+        name: "25 Améliorations Chance",
+        description: "Achète 25 améliorations de Chance dans la boutique.",
+        reward: 3000,
+        icon: "🍀",
+        badge: "3",
+        check: () => (luckLevel - 1) >= 25
+    },
+    {
+        id: "luck_upg_max",
+        name: "Chance Max",
+        description: `Atteins le niveau max de Chance (${maxLuckLevel}).`,
+        reward: 15000,
+        icon: "🍀",
+        badge: "4",
+        check: () => luckLevel >= maxLuckLevel
+    },
+    {
+        id: "coinmult_upg_1",
+        name: "1 Amélioration Pièces",
+        description: "Achète 1 amélioration de Multiplicateur de Pièces dans la boutique.",
+        reward: 100,
+        icon: "💰",
+        badge: "1",
+        check: () => (coinMultLevel - 1) >= 1
+    },
+    {
+        id: "coinmult_upg_10",
+        name: "10 Améliorations Pièces",
+        description: "Achète 10 améliorations de Multiplicateur de Pièces dans la boutique.",
+        reward: 800,
+        icon: "💰",
+        badge: "2",
+        check: () => (coinMultLevel - 1) >= 10
+    },
+    {
+        id: "coinmult_upg_25",
+        name: "25 Améliorations Pièces",
+        description: "Achète 25 améliorations de Multiplicateur de Pièces dans la boutique.",
+        reward: 3000,
+        icon: "💰",
+        badge: "3",
+        check: () => (coinMultLevel - 1) >= 25
+    },
+    {
+        id: "coinmult_upg_max",
+        name: "Pièces Max",
+        description: `Atteins le niveau max de Multiplicateur de Pièces (${maxCoinMultLevel}).`,
+        reward: 15000,
+        icon: "💰",
+        badge: "4",
+        check: () => coinMultLevel >= maxCoinMultLevel
+    },
+    {
+        id: "admin_abuse_participation",
+        name: "Participation Admin Abuse",
+        description: "Sois affecté par une action admin (message, event, rareté forcée, compte à rebours...).",
+        reward: 500,
+        icon: "🛡️",
+        check: () => false
+    },
+    {
+        id: "laurentb1133_rarity",
+        name: "Laurentb1133",
+        description: "Obtiens la rareté ultime Laurentb1133.",
+        reward: 10000000,
+        icon: "🌈",
+        check: () => inventory["Laurentb1133"] > 0
     }
 ];
 const unlockedAchievements = {};
@@ -1070,6 +1252,7 @@ buyLuckButton.addEventListener("click", () => {
         luckCost = Math.floor(luckCost * 2.2);
         updateUIStats();
         updateShopUI();
+        checkAchievements();
         saveGame();
         playSound("buy");
     } else {
@@ -1086,6 +1269,7 @@ buyCoinMultButton.addEventListener("click", () => {
         coinMultCost = Math.floor(coinMultCost * 2.2);
         updateUIStats();
         updateShopUI();
+        checkAchievements();
         saveGame();
         playSound("buy");
     } else {
