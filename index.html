@@ -16,6 +16,18 @@
         <div id="adminCountdownNumber" style="font-size: 32px; line-height: 1;">10</div>
     </div>
 
+    <!-- Bannière Achievement débloqué (overlay global, visible partout y compris sur l'event) -->
+    <div id="achievementUnlockBanner" style="display: none; position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #ffd700, #ffb300); color: #111; font-weight: bold; padding: 12px 20px; border-radius: 10px; font-size: 15px; text-align: center; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); animation: pulse 1.5s infinite; z-index: 9600; max-width: 90vw;">
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #5c4400;">🏆 Achievement débloqué</div>
+        <div id="achievementUnlockText" style="font-size: 16px;"></div>
+    </div>
+
+    <!-- Bannière annonçant le lancement de l'event Julesb4 -->
+    <div id="eventStartBanner" style="display: none; position: fixed; top: 160px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #8338ec, #00e5ff); color: white; font-weight: bold; padding: 14px 24px; border-radius: 10px; font-size: 15px; text-align: center; box-shadow: 0 4px 20px rgba(131, 56, 236, 0.5); animation: pulse 1.5s infinite; z-index: 9600; max-width: 90vw;">
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #e0d4ff;">🎉 Nouvel Événement</div>
+        <div style="font-size: 16px;">L'Événement Julesb4 est maintenant actif !</div>
+    </div>
+
 
     <div class="game">
 
@@ -25,12 +37,6 @@
         <div id="adminAnnouncementBanner" style="display: none; background: linear-gradient(90deg, #ff3b30, #ff9500); color: white; font-weight: bold; padding: 12px 20px; border-radius: 10px; font-size: 15px; text-align: center; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4); animation: pulse 1.5s infinite;">
             <div id="adminAnnouncementTitle" style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #ffe6e6;">Admin Laurentb1133</div>
             <div id="adminAnnouncementText" style="font-size: 16px;"></div>
-        </div>
-
-        <!-- Bannière Achievement débloqué -->
-        <div id="achievementUnlockBanner" style="display: none; background: linear-gradient(90deg, #ffd700, #ffb300); color: #111; font-weight: bold; padding: 12px 20px; border-radius: 10px; font-size: 15px; text-align: center; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); animation: pulse 1.5s infinite;">
-            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #5c4400;">🏆 Achievement débloqué</div>
-            <div id="achievementUnlockText" style="font-size: 16px;"></div>
         </div>
 
         <!-- Bannières d'événements -->
@@ -72,6 +78,7 @@
         <button id="shopButton">🛒 BOUTIQUE</button>
         <button id="achievementsButton">🏆 SUCCÈS</button>
         <button id="settingsButton">⚙️ PARAMÈTRES</button>
+        <button id="eventButton" style="display: none; margin: 15px auto 0; font-size: 18px; font-weight: bold; padding: 12px 25px; border: none; border-radius: 10px; background: linear-gradient(90deg, #8338ec, #00e5ff); color: white; cursor: pointer; transition: 0.15s; width: 210px; box-shadow: 0 0 15px rgba(131, 56, 236, 0.5);">🎉 Événement Julesb4</button>
 
     </div>
 
@@ -81,6 +88,10 @@
             <div class="inventoryHeader">
                 <h2>🎒 Inventaire</h2>
                 <button id="closeInventory">✕</button>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button id="inventoryViewBaseButton" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: #5865f2; color: white; font-weight: bold; cursor: pointer; font-size: 13px;">🎲 Jeu de Base</button>
+                <button id="inventoryViewEventButton" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: #292929; color: white; font-weight: bold; cursor: pointer; font-size: 13px;">🎉 Julesb4</button>
             </div>
             <div id="inventoryList"></div>
         </div>
@@ -164,7 +175,29 @@
         </div>
     </div>
 
+    <!-- PAGE EVENT SPÉCIAL (style néon/arcade, différent du jeu de base) -->
+    <div id="eventPage" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle at center, #1a0033, #05000f); z-index: 9500; flex-direction: column; align-items: center; justify-content: center; padding: 30px; box-sizing: border-box; font-family: Arial, sans-serif; color: white; overflow-y: auto;">
+        <button id="closeEventPage" style="position: absolute; top: 20px; right: 20px; padding: 10px 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">✕ Retour</button>
+
+        <h1 style="font-size: 34px; margin-bottom: 10px; text-align: center; background: linear-gradient(90deg, #8338ec, #00e5ff, #ff006e, #8338ec); background-size: 300% 100%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: pulse 2s infinite;">🎉 ÉVÉNEMENT JULESB4</h1>
+
+        <div id="eventResult" style="font-size: 48px; font-weight: bold; margin: 30px 0; min-height: 70px; text-align: center;">?</div>
+
+        <div style="display: grid; grid-template-columns: 170px 1fr 170px; align-items: center; gap: 15px; width: 100%; max-width: 640px; margin: 0 auto;">
+            <button id="eventAutoRollButton" style="font-size: 14px; font-weight: bold; width: 170px; height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: none; border-radius: 12px; background: #202225; color: #666; cursor: not-allowed; transition: 0.15s; line-height: 1.2;">
+                AUTO-ROLL<br><small id="eventAutoRollRequirement" style="font-size: 10px; color: #aaa; margin-top: 2px;">10 rolls requis</small>
+            </button>
+            <div style="display: flex; justify-content: center;">
+                <button id="eventRollButton" style="font-size: 26px; font-weight: bold; padding: 18px 45px; border: none; border-radius: 14px; background: linear-gradient(90deg, #8338ec, #00e5ff); color: white; cursor: pointer; box-shadow: 0 0 25px rgba(131, 56, 236, 0.6); transition: 0.15s; white-space: nowrap;">ROLL JULESB4</button>
+            </div>
+            <div></div>
+        </div>
+
+        <div id="eventInventoryList" style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 40px; max-width: 500px;"></div>
+    </div>
+
     <!-- PAGE ADMIN (F2) -->
+
     <div id="adminPage" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f0f13; z-index: 9999; flex-direction: column; padding: 30px; box-sizing: border-box; font-family: Arial, sans-serif; color: white; overflow-y: auto;">
 
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff3b30; padding-bottom: 15px; margin-bottom: 20px;">
@@ -283,6 +316,30 @@
                         <button id="adminCancelUnlockAchievementButton" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
                     </div>
                     <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ Donne le succès (et sa récompense) directement, sans avoir à remplir la condition. "Annuler" empêche les joueurs qui n'ont pas encore reçu le succès de l'obtenir — ça ne retire rien à ceux qui l'ont déjà.</p>
+                </div>
+
+                <!-- Event Julesb4 -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #8338ec;">🎉 Event Julesb4 (5 raretés exclusives)</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminStartSpecialEvent" style="flex: 1; padding: 12px; background: #8338ec; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Activer 🚀</button>
+                        <button id="adminStopSpecialEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Désactiver 🛑</button>
+                    </div>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">Affiche/masque le bouton "🎉 Événement Julesb4" sur la page principale de tous les joueurs. Aucune amélioration, juste un roll spécial vers Arcade (1/2), Construction (1/10), Hacker (1/100), Extrême (1/250), Julesb4 (1/1000).</p>
+                </div>
+
+                <!-- Forcer un Roll Julesb4 -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #ff006e;">🎯 Forcer un Roll Julesb4</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Rareté event :</label>
+                        <select id="adminEventRaritySelect" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;"></select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminForceEventRarityButton" style="flex: 1; padding: 12px; background: #ff006e; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Appliquer 🎯</button>
+                        <button id="adminCancelForceEventRarityButton" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
+                    </div>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain ROLL JULESB4 (dans la page event) de chaque joueur. N'affecte pas les rolls du jeu de base.</p>
                 </div>
 
                 <!-- Compte à rebours Admin Abuse -->
