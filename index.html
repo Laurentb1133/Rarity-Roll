@@ -74,7 +74,13 @@
             </button>
         </div>
 
-        <button id="inventoryButton">🎒 INVENTAIRE</button>
+        <div style="display: grid; grid-template-columns: 210px 1fr 210px; align-items: center; gap: 10px; width: 100%; max-width: 640px; margin: 0 auto;">
+            <button id="leaderboardButton" style="margin: 15px 0 0 0;">🏅 CLASSEMENT</button>
+            <div style="display: flex; justify-content: center;">
+                <button id="inventoryButton" style="margin: 15px 0 0 0;">🎒 INVENTAIRE</button>
+            </div>
+            <div></div>
+        </div>
         <button id="shopButton">🛒 BOUTIQUE</button>
         <button id="achievementsButton">🏆 SUCCÈS</button>
         <button id="settingsButton">⚙️ PARAMÈTRES</button>
@@ -149,6 +155,21 @@
         </div>
     </div>
 
+    <!-- Fenêtre Classement -->
+    <div id="leaderboardWindow" class="inventoryWindow">
+        <div class="inventoryBox">
+            <div class="inventoryHeader">
+                <h2>🏅 Classement — Pièces</h2>
+                <button id="closeLeaderboard">✕</button>
+            </div>
+            <div id="leaderboardNoAccountMessage" style="display: none; text-align: center; padding: 25px 10px; color: #ccc; font-size: 14px; line-height: 1.6;">
+                🔒 Crée un compte dans <strong>⚙️ Paramètres</strong> pour voir le classement et y apparaître !
+            </div>
+            <div id="leaderboardLoading" style="display: none; text-align: center; padding: 25px 10px; color: #888; font-size: 14px;">Chargement du classement...</div>
+            <div id="leaderboardList" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
     <!-- Fenêtre Paramètres -->
     <div id="settingsWindow" class="inventoryWindow">
         <div class="inventoryBox">
@@ -163,6 +184,32 @@
                         🎯 Multiplicateur actif : <span id="currentLuckSetting" style="color: #5865f2;">x1</span>
                     </label>
                     <input type="range" id="luckSlider" min="1" max="1" value="1" style="width: 100%; cursor: pointer;">
+                </div>
+
+                <div style="background: #292929; padding: 15px; border-radius: 10px;">
+                    <h3 style="font-size: 16px; margin-bottom: 10px;">👤 Compte</h3>
+
+                    <div id="accountLoggedOutSection">
+                        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Crée un compte pour retrouver ta progression sur un autre appareil.</p>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 13px;">Nom d'utilisateur :</label>
+                            <input type="text" id="accountUsernameInput" autocomplete="username" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 13px;">Mot de passe :</label>
+                            <input type="password" id="accountPasswordInput" autocomplete="current-password" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box;">
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="accountSignupButton" style="flex: 1; padding: 10px; border: none; border-radius: 6px; background: #5865f2; color: white; font-weight: bold; cursor: pointer; font-size: 13px;">Créer un compte</button>
+                            <button id="accountLoginButton" style="flex: 1; padding: 10px; border: 1px solid #5865f2; border-radius: 6px; background: transparent; color: white; font-weight: bold; cursor: pointer; font-size: 13px;">Se connecter</button>
+                        </div>
+                        <div id="accountError" style="color: #ff6b6b; font-size: 12px; margin-top: 8px;"></div>
+                    </div>
+
+                    <div id="accountLoggedInSection" style="display: none;">
+                        <p style="font-size: 14px; margin-bottom: 10px;">Connecté en tant que <strong id="accountUsernameDisplay" style="color: #5865f2;"></strong></p>
+                        <button id="accountLogoutButton" style="width: 100%; padding: 10px; border: none; border-radius: 6px; background: #ff3b30; color: white; font-weight: bold; cursor: pointer;">Déconnexion</button>
+                    </div>
                 </div>
 
                 <div style="background: #292929; padding: 15px; border-radius: 10px; border-left: 4px solid #ff3b30;">
@@ -369,8 +416,8 @@
     =========================================================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyApNM-2D1ktItK0DVqZJRB2_XEZUc7s-tQ",
@@ -386,6 +433,43 @@
         const db = getDatabase(app);
         const auth = getAuth(app);
         const adminRef = ref(db, "adminState");
+
+        // --- App Firebase séparée pour les comptes JOUEURS (session indépendante de l'admin) ---
+        const playerApp = initializeApp(firebaseConfig, "playerApp");
+        const playerAuth = getAuth(playerApp);
+        const playerDb = getDatabase(playerApp);
+
+        function usernameToEmail(username) {
+            return username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") + "@julesb4-rng.local";
+        }
+
+        window.playerAccount = {
+            signUp(username, password) {
+                const email = usernameToEmail(username);
+                return createUserWithEmailAndPassword(playerAuth, email, password)
+                    .then((cred) => updateProfile(cred.user, { displayName: username }).then(() => cred));
+            },
+            login(username, password) {
+                const email = usernameToEmail(username);
+                return signInWithEmailAndPassword(playerAuth, email, password);
+            },
+            logout() {
+                return signOut(playerAuth);
+            },
+            onAuthChange(fn) {
+                onAuthStateChanged(playerAuth, fn);
+            },
+            saveToCloud(uid, data) {
+                return set(ref(playerDb, "players/" + uid), data)
+                    .then(() => set(ref(playerDb, "leaderboard/" + uid), { username: data.username, coins: data.coins || 0 }));
+            },
+            loadFromCloud(uid) {
+                return get(ref(playerDb, "players/" + uid)).then(snap => snap.exists() ? snap.val() : null);
+            },
+            getLeaderboard() {
+                return get(ref(playerDb, "leaderboard")).then(snap => snap.exists() ? snap.val() : {});
+            }
+        };
 
         window.firebaseAdmin = {
             _lastState: null,
