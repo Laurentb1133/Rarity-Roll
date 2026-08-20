@@ -85,6 +85,21 @@ const rarities = [
     { name: "Laurentb1133", oddsNumber: 100000000000000, color: "rainbow", coins: 50000000000000 }
 ];
 
+// Raretés exclusives de l'event spécial (aucune pièce, juste de la collection)
+const eventRarities = [
+    { name: "Arcade", oddsNumber: 2, color: "#00e5ff" },
+    { name: "Construction", oddsNumber: 10, color: "#ffb300" },
+    { name: "Hacker", oddsNumber: 100, color: "#39ff14" },
+    { name: "Extrême", oddsNumber: 250, color: "#ff3b30" },
+    { name: "Julesb4", oddsNumber: 1000, color: "rainbow" }
+];
+const eventInventory = {};
+eventRarities.forEach(r => eventInventory[r.name] = 0);
+let isEventActive = false;
+let eventStartBannerTimeout = null;
+let hasParticipatedJulesb4Event = false;
+let forcedEventRarity = null;
+
 let luck = 1, activeLuck = 1, luckLevel = 1, maxLuckLevel = 30, luckCost = 50, coins = 0, totalRolls = 0;
 let coinMult = 1, coinMultLevel = 1, maxCoinMultLevel = 30, coinMultCost = 100;
 let adminMessage = "";
@@ -328,7 +343,7 @@ const achievements = [
     {
         id: "admin_abuse_participation",
         name: "Participation Admin Abuse",
-        description: "Sois affecté par une action admin (message, event, rareté forcée, compte à rebours...).",
+        description: "Succès spécial, débloqué uniquement par l'administrateur depuis le panneau admin.",
         reward: 500,
         icon: "🛡️",
         check: () => false
@@ -340,6 +355,22 @@ const achievements = [
         reward: 10000000,
         icon: "🌈",
         check: () => inventory["Laurentb1133"] > 0
+    },
+    {
+        id: "event_julesb4_participation",
+        name: "Participation Julesb4",
+        description: "Participe à l'événement Julesb4 (fais au moins un roll dans l'event).",
+        reward: 500,
+        icon: "🎉",
+        check: () => hasParticipatedJulesb4Event
+    },
+    {
+        id: "event_julesb4_rarity",
+        name: "Julesb4 (Rareté)",
+        description: "Obtiens la rareté exclusive Julesb4 pendant l'événement.",
+        reward: 2000000,
+        icon: "🌈",
+        check: () => eventInventory["Julesb4"] > 0
     }
 ];
 const unlockedAchievements = {};
@@ -365,6 +396,8 @@ const inventoryButton = document.getElementById("inventoryButton");
 const inventoryWindow = document.getElementById("inventoryWindow");
 const closeInventory = document.getElementById("closeInventory");
 const inventoryList = document.getElementById("inventoryList");
+const inventoryViewBaseButton = document.getElementById("inventoryViewBaseButton");
+const inventoryViewEventButton = document.getElementById("inventoryViewEventButton");
 
 const shopButton = document.getElementById("shopButton");
 const shopWindow = document.getElementById("shopWindow");
@@ -398,6 +431,16 @@ function triggerAchievementBanner(text) {
 }
 
 const settingsButton = document.getElementById("settingsButton");
+const eventButton = document.getElementById("eventButton");
+const eventPage = document.getElementById("eventPage");
+const closeEventPage = document.getElementById("closeEventPage");
+const eventResult = document.getElementById("eventResult");
+const eventRollButton = document.getElementById("eventRollButton");
+const eventInventoryList = document.getElementById("eventInventoryList");
+const eventAutoRollButton = document.getElementById("eventAutoRollButton");
+const eventAutoRollRequirement = document.getElementById("eventAutoRollRequirement");
+let isEventAutoRollActive = false, eventAutoRollTimeout = null, eventAutoRollCooldown = false;
+let isEventRolling = false;
 const settingsWindow = document.getElementById("settingsWindow");
 const closeSettings = document.getElementById("closeSettings");
 const luckSlider = document.getElementById("luckSlider");
@@ -445,6 +488,11 @@ const adminCancelForceRarityButton = document.getElementById("adminCancelForceRa
 const adminAchievementSelect = document.getElementById("adminAchievementSelect");
 const adminUnlockAchievementButton = document.getElementById("adminUnlockAchievementButton");
 const adminCancelUnlockAchievementButton = document.getElementById("adminCancelUnlockAchievementButton");
+const adminStartSpecialEvent = document.getElementById("adminStartSpecialEvent");
+const adminStopSpecialEvent = document.getElementById("adminStopSpecialEvent");
+const adminEventRaritySelect = document.getElementById("adminEventRaritySelect");
+const adminForceEventRarityButton = document.getElementById("adminForceEventRarityButton");
+const adminCancelForceEventRarityButton = document.getElementById("adminCancelForceEventRarityButton");
 
 const moneyEventBanner = document.getElementById("moneyEventBanner");
 const moneyEventMult = document.getElementById("moneyEventMult");
@@ -468,11 +516,18 @@ achievements.forEach(a => {
     adminAchievementSelect.appendChild(option);
 });
 
+eventRarities.forEach(r => {
+    const option = document.createElement("option");
+    option.value = r.name;
+    option.textContent = `${r.name} (1/${formatOdds(r.oddsNumber)})`;
+    adminEventRaritySelect.appendChild(option);
+});
+
 function saveGame() {
     localStorage.setItem("rngGameSave", JSON.stringify({
         coins, luck, activeLuck, luckLevel, luckCost,
         coinMult, coinMultLevel, coinMultCost,
-        totalRolls, inventory, unlockedAchievements
+        totalRolls, inventory, unlockedAchievements, eventInventory, hasParticipatedJulesb4Event
     }));
 }
 
@@ -499,9 +554,16 @@ function loadGame() {
                 if (unlockedAchievements.hasOwnProperty(k)) unlockedAchievements[k] = data.unlockedAchievements[k];
             }
         }
+        if (data.eventInventory) {
+            for (let k in data.eventInventory) {
+                if (eventInventory.hasOwnProperty(k)) eventInventory[k] = data.eventInventory[k];
+            }
+        }
+        hasParticipatedJulesb4Event = data.hasParticipatedJulesb4Event || false;
     }
     updateUIStats();
     updateAutoRollUnlockStatus();
+    updateEventAutoRollUnlockStatus();
 }
 
 function triggerAdminMessage(msg) {
@@ -556,9 +618,11 @@ function showRarity(r) {
     }
 }
 
-function updateInventory() {
+let currentInventoryView = "base";
+
+function renderInventoryList(list, counts) {
     inventoryList.innerHTML = "";
-    rarities.forEach(r => {
+    list.forEach(r => {
         const item = document.createElement("div");
         item.className = "inventoryItem";
         const info = document.createElement("div");
@@ -569,7 +633,7 @@ function updateInventory() {
         odds.style.color = "#888";
         odds.style.marginLeft = "8px";
 
-        if (r.name === "Laurentb1133") {
+        if (r.name === "Laurentb1133" || r.color === "rainbow") {
             name.style.background = "linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet)";
             name.style.backgroundSize = "300% 100%";
             name.style.webkitBackgroundClip = "text";
@@ -582,11 +646,19 @@ function updateInventory() {
         info.appendChild(name);
         info.appendChild(odds);
         const amount = document.createElement("span");
-        amount.textContent = `x${inventory[r.name]}`;
+        amount.textContent = `x${counts[r.name]}`;
         item.appendChild(info);
         item.appendChild(amount);
         inventoryList.appendChild(item);
     });
+}
+
+function updateInventory() {
+    if (currentInventoryView === "event") {
+        renderInventoryList(eventRarities, eventInventory);
+    } else {
+        renderInventoryList(rarities, inventory);
+    }
 }
 
 function checkAchievements() {
@@ -681,6 +753,197 @@ function updateAchievementsUI() {
     if (achievementsProgress) achievementsProgress.textContent = `— ${percent}% (${unlockedCount}/${total})`;
 }
 
+// ==========================================================================
+// EVENT SPÉCIAL : page à part, 5 raretés exclusives, pas d'améliorations.
+// ==========================================================================
+function updateEventButtonVisibility() {
+    if (eventButton) eventButton.style.display = isEventActive ? "block" : "none";
+}
+
+function triggerEventStartBanner() {
+    const banner = document.getElementById("eventStartBanner");
+    if (!banner) return;
+    if (eventStartBannerTimeout) clearTimeout(eventStartBannerTimeout);
+    banner.style.display = "block";
+    eventStartBannerTimeout = setTimeout(() => {
+        banner.style.display = "none";
+    }, 6000);
+}
+
+function chooseEventRarity() {
+    if (forcedEventRarity !== null) {
+        const r = forcedEventRarity;
+        forcedEventRarity = null;
+        return r;
+    }
+    const roll = Math.random();
+    let cumulative = 0;
+    for (let i = eventRarities.length - 1; i > 0; i--) {
+        const r = eventRarities[i];
+        cumulative += (1 / r.oddsNumber);
+        if (roll < cumulative) return r;
+    }
+    return eventRarities[0];
+}
+
+function showEventRarity(r) {
+    eventResult.innerHTML = `<div>${r.name}</div><small>1/${formatOdds(r.oddsNumber)}</small>`;
+    if (r.color === "rainbow") {
+        eventResult.style.background = "linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet)";
+        eventResult.style.backgroundSize = "300% 100%";
+        eventResult.style.webkitBackgroundClip = "text";
+        eventResult.style.webkitTextFillColor = "transparent";
+    } else {
+        eventResult.style.background = "none";
+        eventResult.style.webkitBackgroundClip = "initial";
+        eventResult.style.webkitTextFillColor = "initial";
+        eventResult.style.color = r.color;
+    }
+}
+
+function updateEventInventoryUI() {
+    if (!eventInventoryList) return;
+    eventInventoryList.innerHTML = "";
+    eventRarities.forEach(r => {
+        const item = document.createElement("div");
+        item.style.background = "#1a0033";
+        item.style.border = "2px solid " + (r.color === "rainbow" ? "#8338ec" : r.color);
+        item.style.borderRadius = "10px";
+        item.style.padding = "10px 16px";
+        item.style.minWidth = "100px";
+        item.style.textAlign = "center";
+
+        const name = document.createElement("div");
+        name.textContent = r.name;
+        name.style.fontWeight = "bold";
+        name.style.fontSize = "14px";
+        name.style.color = r.color === "rainbow" ? "#fff" : r.color;
+
+        const odds = document.createElement("div");
+        odds.textContent = `1/${formatOdds(r.oddsNumber)}`;
+        odds.style.fontSize = "11px";
+        odds.style.color = "#aaa";
+        odds.style.marginTop = "2px";
+
+        const count = document.createElement("div");
+        count.textContent = `x${eventInventory[r.name]}`;
+        count.style.fontSize = "18px";
+        count.style.marginTop = "4px";
+
+        item.appendChild(name);
+        item.appendChild(odds);
+        item.appendChild(count);
+        eventInventoryList.appendChild(item);
+    });
+}
+
+function executeEventRoll(callback) {
+    if (isEventRolling) return;
+    isEventRolling = true;
+    eventRollButton.disabled = true;
+
+    const duration = 900, start = Date.now();
+    function animate() {
+        const elapsed = Date.now() - start;
+        showEventRarity(eventRarities[Math.floor(Math.random() * eventRarities.length)]);
+        playSound("roll");
+        if (elapsed < duration) {
+            setTimeout(animate, 40 + ((elapsed / duration) * 150));
+        } else {
+            finish();
+        }
+    }
+    animate();
+
+    function finish() {
+        const selected = chooseEventRarity();
+        eventInventory[selected.name]++;
+        hasParticipatedJulesb4Event = true;
+        showEventRarity(selected);
+        if (selected.name !== "Arcade") playSound("success");
+        updateEventInventoryUI();
+        checkAchievements();
+        saveGame();
+        isEventRolling = false;
+        if (!isEventAutoRollActive) {
+            eventRollButton.disabled = false;
+        }
+        if (callback) callback();
+    }
+}
+
+function updateEventAutoRollUnlockStatus() {
+    if (!eventAutoRollButton) return;
+    if (totalRolls >= 10) {
+        eventAutoRollButton.style.cursor = "pointer";
+        eventAutoRollButton.style.color = "white";
+        if (!isEventAutoRollActive && !eventAutoRollCooldown) {
+            eventAutoRollButton.style.background = "#2f3136";
+            eventAutoRollRequirement.textContent = "Débloqué";
+        }
+    } else {
+        eventAutoRollButton.style.background = "#202225";
+        eventAutoRollButton.style.color = "#666";
+        eventAutoRollButton.style.cursor = "not-allowed";
+        eventAutoRollRequirement.textContent = `${10 - totalRolls} rolls (base) restants`;
+    }
+}
+
+function startEventAutoRoll() {
+    if (!isEventAutoRollActive) return;
+    executeEventRoll(() => {
+        if (isEventAutoRollActive) {
+            if (eventAutoRollTimeout) clearTimeout(eventAutoRollTimeout);
+            eventAutoRollTimeout = setTimeout(startEventAutoRoll, 300);
+        }
+    });
+}
+
+eventAutoRollButton.addEventListener("click", () => {
+    playSound("click");
+    if (totalRolls < 10) {
+        alert("10 rolls dans le jeu de base requis pour l'Auto-Roll Julesb4 !");
+        return;
+    }
+
+    if (eventAutoRollCooldown) return;
+
+    isEventAutoRollActive = !isEventAutoRollActive;
+
+    if (isEventAutoRollActive) {
+        eventAutoRollCooldown = true;
+        eventAutoRollButton.style.background = "#43b581";
+        eventAutoRollButton.style.boxShadow = "0 0 15px rgba(67, 181, 129, 0.4)";
+
+        let timeLeft = 5;
+        eventAutoRollButton.innerHTML = `AUTO-ROLL<br><small style='color:white;'>Sécurité (${timeLeft}s)</small>`;
+
+        const cooldownInterval = setInterval(() => {
+            timeLeft--;
+            if (timeLeft > 0) {
+                eventAutoRollButton.innerHTML = `AUTO-ROLL<br><small style='color:white;'>Sécurité (${timeLeft}s)</small>`;
+            } else {
+                clearInterval(cooldownInterval);
+                eventAutoRollCooldown = false;
+                if (isEventAutoRollActive) {
+                    eventAutoRollButton.innerHTML = "AUTO-ROLL<br><small style='color:white;'>Cliquer pour désactiver</small>";
+                }
+            }
+        }, 1000);
+
+        eventRollButton.disabled = true;
+        if (eventAutoRollTimeout) clearTimeout(eventAutoRollTimeout);
+        startEventAutoRoll();
+    } else {
+        eventAutoRollButton.style.background = "#2f3136";
+        eventAutoRollButton.style.boxShadow = "none";
+        eventAutoRollButton.innerHTML = "AUTO-ROLL<br><small id='eventAutoRollRequirement'>Débloqué</small>";
+        if (!isEventRolling) eventRollButton.disabled = false;
+        if (eventAutoRollTimeout) clearTimeout(eventAutoRollTimeout);
+    }
+});
+
+
 function chooseRarity() {
     if (forcedRarity !== null) {
         const r = forcedRarity;
@@ -736,6 +999,7 @@ function executeRoll(callback) {
         }
         updateInventory();
         updateAutoRollUnlockStatus();
+        updateEventAutoRollUnlockStatus();
         checkAchievements();
         saveGame();
 
@@ -804,14 +1068,49 @@ autoRollButton.addEventListener("click", () => {
     }
 });
 
-inventoryButton.addEventListener("click", () => { playSound("click"); updateInventory(); inventoryWindow.style.display = "flex"; });
+inventoryButton.addEventListener("click", () => {
+    playSound("click");
+    currentInventoryView = "base";
+    inventoryViewBaseButton.style.background = "#5865f2";
+    inventoryViewEventButton.style.background = "#292929";
+    updateInventory();
+    inventoryWindow.style.display = "flex";
+});
 closeInventory.addEventListener("click", () => { playSound("click"); inventoryWindow.style.display = "none"; });
+
+inventoryViewBaseButton.addEventListener("click", () => {
+    playSound("click");
+    currentInventoryView = "base";
+    inventoryViewBaseButton.style.background = "#5865f2";
+    inventoryViewEventButton.style.background = "#292929";
+    updateInventory();
+});
+
+inventoryViewEventButton.addEventListener("click", () => {
+    playSound("click");
+    currentInventoryView = "event";
+    inventoryViewEventButton.style.background = "#8338ec";
+    inventoryViewBaseButton.style.background = "#292929";
+    updateInventory();
+});
 shopButton.addEventListener("click", () => { playSound("click"); updateShopUI(); shopWindow.style.display = "flex"; });
 closeShop.addEventListener("click", () => { playSound("click"); shopWindow.style.display = "none"; });
 achievementsButton.addEventListener("click", () => { playSound("click"); updateAchievementsUI(); achievementsWindow.style.display = "flex"; });
 closeAchievements.addEventListener("click", () => { playSound("click"); achievementsWindow.style.display = "none"; hideAchievementTooltip(); });
 settingsButton.addEventListener("click", () => { playSound("click"); luckSlider.max = luck; luckSlider.value = activeLuck; currentLuckSetting.textContent = `x${activeLuck}`; settingsWindow.style.display = "flex"; });
 closeSettings.addEventListener("click", () => { playSound("click"); settingsWindow.style.display = "none"; });
+
+eventButton.addEventListener("click", () => {
+    playSound("click");
+    updateEventInventoryUI();
+    updateEventAutoRollUnlockStatus();
+    eventPage.style.display = "flex";
+});
+closeEventPage.addEventListener("click", () => { playSound("click"); eventPage.style.display = "none"; });
+eventRollButton.addEventListener("click", () => {
+    if (isEventAutoRollActive || isEventRolling) return;
+    executeEventRoll();
+});
 
 luckSlider.addEventListener("input", (e) => {
     activeLuck = parseInt(e.target.value);
@@ -1068,12 +1367,63 @@ adminCancelUnlockAchievementButton.addEventListener("click", () => {
     }
 });
 
+adminStartSpecialEvent.addEventListener("click", () => {
+    playSound("success");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        isEventActive = true;
+        updateEventButtonVisibility();
+        triggerEventStartBanner();
+    } else {
+        if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+        window.firebaseAdmin.push({ specialEvent: true });
+    }
+});
+
+adminStopSpecialEvent.addEventListener("click", () => {
+    playSound("click");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        isEventActive = false;
+        updateEventButtonVisibility();
+    } else {
+        if (!window.firebaseAdmin) return;
+        window.firebaseAdmin.clear("specialEvent");
+    }
+});
+
+adminForceEventRarityButton.addEventListener("click", () => {
+    const found = eventRarities.find(r => r.name === adminEventRaritySelect.value);
+    if (found) {
+        playSound("success");
+        adminPage.style.display = "none";
+        if (adminTestModeToggle.checked) {
+            forcedEventRarity = found;
+        } else {
+            if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+            window.firebaseAdmin.push({ forcedEventRarity: { name: found.name, id: Date.now() } });
+        }
+    }
+});
+
+adminCancelForceEventRarityButton.addEventListener("click", () => {
+    playSound("click");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        forcedEventRarity = null;
+    } else {
+        if (!window.firebaseAdmin) return;
+        window.firebaseAdmin.clear("forcedEventRarity");
+    }
+});
+
 // ==========================================================================
 // APPLICATION DES ÉTATS ADMIN REÇUS DE FIREBASE (pour tous les joueurs)
 // ==========================================================================
 
 let lastAppliedMessageId = null;
 let lastAppliedForcedRarityId = null;
+let lastAppliedForcedEventRarityId = null;
 let lastAppliedUnlockAchievementRequestId = null;
 
 function applyMoneyEventFromState(moneyEvent) {
@@ -1200,6 +1550,22 @@ function handleAdminState(state) {
     if (state.unlockAchievement && state.unlockAchievement.requestId !== lastAppliedUnlockAchievementRequestId) {
         lastAppliedUnlockAchievementRequestId = state.unlockAchievement.requestId;
         forceUnlockAchievement(state.unlockAchievement.id);
+    }
+
+    // Event spécial : affiche/masque le bouton chez tout le monde
+    const newEventActive = !!state.specialEvent;
+    if (newEventActive && !isEventActive) triggerEventStartBanner();
+    isEventActive = newEventActive;
+    updateEventButtonVisibility();
+
+    // Rareté forcée pour l'event Julesb4 : s'applique au prochain ROLL JULESB4 de CHAQUE joueur
+    if (state.forcedEventRarity && state.forcedEventRarity.id !== lastAppliedForcedEventRarityId) {
+        lastAppliedForcedEventRarityId = state.forcedEventRarity.id;
+        const found = eventRarities.find(r => r.name === state.forcedEventRarity.name);
+        if (found) forcedEventRarity = found;
+    } else if (!state.forcedEventRarity && lastAppliedForcedEventRarityId !== null) {
+        lastAppliedForcedEventRarityId = null;
+        forcedEventRarity = null;
     }
 }
 
