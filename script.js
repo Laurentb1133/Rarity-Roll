@@ -393,6 +393,12 @@ if (!coinMultDisplay) {
 }
 
 const inventoryButton = document.getElementById("inventoryButton");
+const leaderboardButton = document.getElementById("leaderboardButton");
+const leaderboardWindow = document.getElementById("leaderboardWindow");
+const closeLeaderboard = document.getElementById("closeLeaderboard");
+const leaderboardNoAccountMessage = document.getElementById("leaderboardNoAccountMessage");
+const leaderboardLoading = document.getElementById("leaderboardLoading");
+const leaderboardList = document.getElementById("leaderboardList");
 const inventoryWindow = document.getElementById("inventoryWindow");
 const closeInventory = document.getElementById("closeInventory");
 const inventoryList = document.getElementById("inventoryList");
@@ -446,6 +452,16 @@ const closeSettings = document.getElementById("closeSettings");
 const luckSlider = document.getElementById("luckSlider");
 const currentLuckSetting = document.getElementById("currentLuckSetting");
 const resetButton = document.getElementById("resetButton");
+
+const accountUsernameInput = document.getElementById("accountUsernameInput");
+const accountPasswordInput = document.getElementById("accountPasswordInput");
+const accountSignupButton = document.getElementById("accountSignupButton");
+const accountLoginButton = document.getElementById("accountLoginButton");
+const accountError = document.getElementById("accountError");
+const accountLoggedOutSection = document.getElementById("accountLoggedOutSection");
+const accountLoggedInSection = document.getElementById("accountLoggedInSection");
+const accountUsernameDisplay = document.getElementById("accountUsernameDisplay");
+const accountLogoutButton = document.getElementById("accountLogoutButton");
 
 const adminPage = document.getElementById("adminPage");
 const closeAdminPage = document.getElementById("closeAdminPage");
@@ -523,43 +539,53 @@ eventRarities.forEach(r => {
     adminEventRaritySelect.appendChild(option);
 });
 
+let loggedInUid = null;
+let loggedInUsername = null;
+
 function saveGame() {
-    localStorage.setItem("rngGameSave", JSON.stringify({
+    const data = {
         coins, luck, activeLuck, luckLevel, luckCost,
         coinMult, coinMultLevel, coinMultCost,
         totalRolls, inventory, unlockedAchievements, eventInventory, hasParticipatedJulesb4Event
-    }));
+    };
+    localStorage.setItem("rngGameSave", JSON.stringify(data));
+    if (loggedInUid && window.playerAccount) {
+        window.playerAccount.saveToCloud(loggedInUid, { ...data, username: loggedInUsername, updatedAt: Date.now() });
+    }
+}
+
+function applySaveData(data) {
+    coins = data.coins || 0;
+    luck = data.luck || 1;
+    activeLuck = data.activeLuck !== undefined ? data.activeLuck : luck;
+    luckLevel = data.luckLevel || 1;
+    luckCost = data.luckCost || 50;
+
+    coinMult = data.coinMult || 1;
+    coinMultLevel = data.coinMultLevel || 1;
+    coinMultCost = data.coinMultCost || 100;
+
+    totalRolls = data.totalRolls || 0;
+    if (data.inventory) {
+        for (let k in data.inventory) { if (inventory.hasOwnProperty(k)) inventory[k] = data.inventory[k]; }
+    }
+    if (data.unlockedAchievements) {
+        for (let k in data.unlockedAchievements) {
+            if (unlockedAchievements.hasOwnProperty(k)) unlockedAchievements[k] = data.unlockedAchievements[k];
+        }
+    }
+    if (data.eventInventory) {
+        for (let k in data.eventInventory) {
+            if (eventInventory.hasOwnProperty(k)) eventInventory[k] = data.eventInventory[k];
+        }
+    }
+    hasParticipatedJulesb4Event = data.hasParticipatedJulesb4Event || false;
 }
 
 function loadGame() {
     const saved = localStorage.getItem("rngGameSave");
     if (saved) {
-        const data = JSON.parse(saved);
-        coins = data.coins || 0;
-        luck = data.luck || 1;
-        activeLuck = data.activeLuck !== undefined ? data.activeLuck : luck;
-        luckLevel = data.luckLevel || 1;
-        luckCost = data.luckCost || 50;
-
-        coinMult = data.coinMult || 1;
-        coinMultLevel = data.coinMultLevel || 1;
-        coinMultCost = data.coinMultCost || 100;
-
-        totalRolls = data.totalRolls || 0;
-        if (data.inventory) {
-            for (let k in data.inventory) { if (inventory.hasOwnProperty(k)) inventory[k] = data.inventory[k]; }
-        }
-        if (data.unlockedAchievements) {
-            for (let k in data.unlockedAchievements) {
-                if (unlockedAchievements.hasOwnProperty(k)) unlockedAchievements[k] = data.unlockedAchievements[k];
-            }
-        }
-        if (data.eventInventory) {
-            for (let k in data.eventInventory) {
-                if (eventInventory.hasOwnProperty(k)) eventInventory[k] = data.eventInventory[k];
-            }
-        }
-        hasParticipatedJulesb4Event = data.hasParticipatedJulesb4Event || false;
+        applySaveData(JSON.parse(saved));
     }
     updateUIStats();
     updateAutoRollUnlockStatus();
@@ -758,6 +784,9 @@ function updateAchievementsUI() {
 // ==========================================================================
 function updateEventButtonVisibility() {
     if (eventButton) eventButton.style.display = isEventActive ? "block" : "none";
+    if (!isEventActive && eventPage && eventPage.style.display !== "none") {
+        eventPage.style.display = "none";
+    }
 }
 
 function triggerEventStartBanner() {
@@ -1126,6 +1155,187 @@ resetButton.addEventListener("click", () => {
         location.reload();
     }
 });
+
+// ==========================================================================
+// COMPTE JOUEUR : nom d'utilisateur + mot de passe, synchronisé sur Firebase
+// pour retrouver sa progression sur un autre appareil.
+// ==========================================================================
+
+function isValidUsername(username) {
+    return /^[a-zA-Z0-9_]{3,16}$/.test(username);
+}
+
+function updateAccountUI() {
+    if (loggedInUid) {
+        accountLoggedOutSection.style.display = "none";
+        accountLoggedInSection.style.display = "block";
+        accountUsernameDisplay.textContent = loggedInUsername;
+    } else {
+        accountLoggedOutSection.style.display = "block";
+        accountLoggedInSection.style.display = "none";
+    }
+}
+
+function connectPlayerAccountAuth() {
+    if (window.playerAccount && window.playerAccount.onAuthChange) {
+        window.playerAccount.onAuthChange((user) => {
+            if (user) {
+                loggedInUid = user.uid;
+                loggedInUsername = user.displayName || "Joueur";
+                updateAccountUI();
+                window.playerAccount.loadFromCloud(user.uid).then((cloudData) => {
+                    if (cloudData) {
+                        applySaveData(cloudData);
+                        updateUIStats();
+                        updateInventory();
+                        updateAutoRollUnlockStatus();
+                        updateEventAutoRollUnlockStatus();
+                        updateShopUI();
+                    } else {
+                        // Nouveau compte, pas encore de sauvegarde cloud : on pousse la progression actuelle
+                        saveGame();
+                    }
+                });
+            } else {
+                loggedInUid = null;
+                loggedInUsername = null;
+                updateAccountUI();
+            }
+        });
+    } else {
+        setTimeout(connectPlayerAccountAuth, 100);
+    }
+}
+connectPlayerAccountAuth();
+
+accountSignupButton.addEventListener("click", () => {
+    const username = accountUsernameInput.value.trim();
+    const password = accountPasswordInput.value;
+    accountError.textContent = "";
+
+    if (!isValidUsername(username)) {
+        accountError.textContent = "Nom d'utilisateur : 3 à 16 caractères, lettres/chiffres/_ seulement.";
+        return;
+    }
+    if (password.length < 6) {
+        accountError.textContent = "Le mot de passe doit faire au moins 6 caractères.";
+        return;
+    }
+    if (!window.playerAccount) return;
+
+    window.playerAccount.signUp(username, password)
+        .then(() => {
+            playSound("success");
+            accountPasswordInput.value = "";
+        })
+        .catch((err) => {
+            if (err.code === "auth/email-already-in-use") {
+                accountError.textContent = "Ce nom d'utilisateur est déjà pris.";
+            } else {
+                accountError.textContent = "Erreur lors de la création du compte.";
+            }
+            playSound("click");
+        });
+});
+
+accountLoginButton.addEventListener("click", () => {
+    const username = accountUsernameInput.value.trim();
+    const password = accountPasswordInput.value;
+    accountError.textContent = "";
+
+    if (!username || !password) {
+        accountError.textContent = "Entre ton nom d'utilisateur et ton mot de passe.";
+        return;
+    }
+    if (!window.playerAccount) return;
+
+    window.playerAccount.login(username, password)
+        .then(() => {
+            playSound("success");
+            accountPasswordInput.value = "";
+        })
+        .catch(() => {
+            accountError.textContent = "Identifiants incorrects.";
+            playSound("click");
+        });
+});
+
+accountPasswordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") accountLoginButton.click();
+});
+
+accountLogoutButton.addEventListener("click", () => {
+    if (!window.playerAccount) return;
+    window.playerAccount.logout();
+    playSound("click");
+});
+
+// ==========================================================================
+// CLASSEMENT : top 100 joueurs par pièces, basé sur les comptes créés.
+// ==========================================================================
+
+function renderLeaderboard(data) {
+    const entries = Object.values(data || {})
+        .filter(e => e && e.username)
+        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+        .slice(0, 100);
+
+    leaderboardList.innerHTML = "";
+
+    if (entries.length === 0) {
+        leaderboardList.innerHTML = `<p style="text-align:center; color:#888; padding:20px 0;">Personne au classement pour l'instant.</p>`;
+        return;
+    }
+
+    entries.forEach((entry, index) => {
+        const item = document.createElement("div");
+        item.className = "inventoryItem";
+        if (entry.username === loggedInUsername) {
+            item.style.background = "#2d2a4a";
+            item.style.border = "1px solid #5865f2";
+        }
+
+        const rank = document.createElement("span");
+        rank.textContent = `#${index + 1}  ${entry.username}`;
+        rank.style.fontWeight = "bold";
+
+        const coinsSpan = document.createElement("span");
+        coinsSpan.textContent = `${formatNumber(entry.coins || 0)} 🪙`;
+        coinsSpan.style.color = "#ffd700";
+
+        item.appendChild(rank);
+        item.appendChild(coinsSpan);
+        leaderboardList.appendChild(item);
+    });
+}
+
+leaderboardButton.addEventListener("click", () => {
+    playSound("click");
+    leaderboardWindow.style.display = "flex";
+    leaderboardList.innerHTML = "";
+
+    if (!loggedInUid) {
+        leaderboardNoAccountMessage.style.display = "block";
+        leaderboardLoading.style.display = "none";
+        return;
+    }
+
+    leaderboardNoAccountMessage.style.display = "none";
+    leaderboardLoading.style.display = "block";
+    leaderboardLoading.textContent = "Chargement du classement...";
+
+    if (!window.playerAccount) return;
+    window.playerAccount.getLeaderboard()
+        .then((data) => {
+            leaderboardLoading.style.display = "none";
+            renderLeaderboard(data);
+        })
+        .catch(() => {
+            leaderboardLoading.textContent = "Erreur de chargement du classement.";
+        });
+});
+
+closeLeaderboard.addEventListener("click", () => { playSound("click"); leaderboardWindow.style.display = "none"; });
 
 // --- Raccourci admin discret : Ctrl + Shift tenus, puis 4, 5, 6 dans l'ordre ---
 // (utilise e.code, indépendant de la disposition du clavier, ex: FR-CA)
