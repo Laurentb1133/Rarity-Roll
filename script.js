@@ -98,6 +98,7 @@ eventRarities.forEach(r => eventInventory[r.name] = 0);
 let isEventActive = false;
 let eventStartBannerTimeout = null;
 let hasParticipatedJulesb4Event = false;
+let totalPlayTimeSeconds = 0;
 let forcedEventRarity = null;
 
 let luck = 1, activeLuck = 1, luckLevel = 1, maxLuckLevel = 30, luckCost = 50, coins = 0, totalRolls = 0;
@@ -371,6 +372,30 @@ const achievements = [
         reward: 2000000,
         icon: "🌈",
         check: () => eventInventory["Julesb4"] > 0
+    },
+    {
+        id: "leaderboard_coins",
+        name: "Classement Pièces",
+        description: "Apparaît dans le classement des pièces (nécessite un compte).",
+        reward: 200,
+        icon: "🪙",
+        check: () => loggedInUid !== null && coins > 0
+    },
+    {
+        id: "leaderboard_rolls",
+        name: "Classement Rolls",
+        description: "Apparaît dans le classement des rolls totaux (nécessite un compte).",
+        reward: 200,
+        icon: "🎲",
+        check: () => loggedInUid !== null && totalRolls > 0
+    },
+    {
+        id: "leaderboard_rarest",
+        name: "Classement Rareté",
+        description: "Apparaît dans le classement de la rareté la plus rare (nécessite un compte).",
+        reward: 200,
+        icon: "💎",
+        check: () => loggedInUid !== null && getRarestOwnedRarity() !== null
     }
 ];
 const unlockedAchievements = {};
@@ -399,6 +424,10 @@ const closeLeaderboard = document.getElementById("closeLeaderboard");
 const leaderboardNoAccountMessage = document.getElementById("leaderboardNoAccountMessage");
 const leaderboardLoading = document.getElementById("leaderboardLoading");
 const leaderboardList = document.getElementById("leaderboardList");
+const statsButton = document.getElementById("statsButton");
+const statsWindow = document.getElementById("statsWindow");
+const closeStats = document.getElementById("closeStats");
+const statsList = document.getElementById("statsList");
 const inventoryWindow = document.getElementById("inventoryWindow");
 const closeInventory = document.getElementById("closeInventory");
 const inventoryList = document.getElementById("inventoryList");
@@ -462,6 +491,9 @@ const accountLoggedOutSection = document.getElementById("accountLoggedOutSection
 const accountLoggedInSection = document.getElementById("accountLoggedInSection");
 const accountUsernameDisplay = document.getElementById("accountUsernameDisplay");
 const accountLogoutButton = document.getElementById("accountLogoutButton");
+const accountNewUsernameInput = document.getElementById("accountNewUsernameInput");
+const accountChangeUsernameButton = document.getElementById("accountChangeUsernameButton");
+const accountChangeUsernameMessage = document.getElementById("accountChangeUsernameMessage");
 
 const adminPage = document.getElementById("adminPage");
 const closeAdminPage = document.getElementById("closeAdminPage");
@@ -509,6 +541,13 @@ const adminStopSpecialEvent = document.getElementById("adminStopSpecialEvent");
 const adminEventRaritySelect = document.getElementById("adminEventRaritySelect");
 const adminForceEventRarityButton = document.getElementById("adminForceEventRarityButton");
 const adminCancelForceEventRarityButton = document.getElementById("adminCancelForceEventRarityButton");
+const adminGiveCoinsInput = document.getElementById("adminGiveCoinsInput");
+const adminGiveCoinsButton = document.getElementById("adminGiveCoinsButton");
+const adminMultiRollCountInput = document.getElementById("adminMultiRollCountInput");
+const adminMultiRollDurationInput = document.getElementById("adminMultiRollDurationInput");
+const adminStartMultiRollEvent = document.getElementById("adminStartMultiRollEvent");
+const adminStopMultiRollEvent = document.getElementById("adminStopMultiRollEvent");
+let isMultiRollEventActive = false, multiRollCount = 1, multiRollCountdownInterval = null;
 
 const moneyEventBanner = document.getElementById("moneyEventBanner");
 const moneyEventMult = document.getElementById("moneyEventMult");
@@ -517,6 +556,9 @@ const moneyEventTimer = document.getElementById("moneyEventTimer");
 const luckEventBanner = document.getElementById("luckEventBanner");
 const luckEventMult = document.getElementById("luckEventMult");
 const luckEventTimer = document.getElementById("luckEventTimer");
+const multiRollEventBanner = document.getElementById("multiRollEventBanner");
+const multiRollEventCountDisplay = document.getElementById("multiRollEventCount");
+const multiRollEventTimer = document.getElementById("multiRollEventTimer");
 
 rarities.forEach(r => {
     const option = document.createElement("option");
@@ -546,11 +588,18 @@ function saveGame() {
     const data = {
         coins, luck, activeLuck, luckLevel, luckCost,
         coinMult, coinMultLevel, coinMultCost,
-        totalRolls, inventory, unlockedAchievements, eventInventory, hasParticipatedJulesb4Event
+        totalRolls, inventory, unlockedAchievements, eventInventory, hasParticipatedJulesb4Event, totalPlayTimeSeconds
     };
     localStorage.setItem("rngGameSave", JSON.stringify(data));
     if (loggedInUid && window.playerAccount) {
-        window.playerAccount.saveToCloud(loggedInUid, { ...data, username: loggedInUsername, updatedAt: Date.now() });
+        const rarest = getRarestOwnedRarity();
+        window.playerAccount.saveToCloud(loggedInUid, {
+            ...data,
+            username: loggedInUsername,
+            updatedAt: Date.now(),
+            rarestOddsNumber: rarest ? rarest.oddsNumber : 0,
+            rarestName: rarest ? rarest.name : ""
+        });
     }
 }
 
@@ -580,6 +629,34 @@ function applySaveData(data) {
         }
     }
     hasParticipatedJulesb4Event = data.hasParticipatedJulesb4Event || false;
+    totalPlayTimeSeconds = data.totalPlayTimeSeconds || 0;
+}
+
+function resetToFreshGameState() {
+    coins = 0;
+    luck = 1;
+    activeLuck = 1;
+    luckLevel = 1;
+    luckCost = 50;
+    coinMult = 1;
+    coinMultLevel = 1;
+    coinMultCost = 100;
+    totalRolls = 0;
+    rarities.forEach(r => inventory[r.name] = 0);
+    achievements.forEach(a => unlockedAchievements[a.id] = false);
+    eventRarities.forEach(r => eventInventory[r.name] = 0);
+    hasParticipatedJulesb4Event = false;
+    totalPlayTimeSeconds = 0;
+
+    localStorage.removeItem("rngGameSave");
+
+    updateUIStats();
+    updateInventory();
+    updateAutoRollUnlockStatus();
+    updateEventAutoRollUnlockStatus();
+    updateShopUI();
+    if (achievementsWindow.style.display !== "none") updateAchievementsUI();
+    if (statsWindow.style.display !== "none") updateStatsUI();
 }
 
 function loadGame() {
@@ -1040,10 +1117,30 @@ function executeRoll(callback) {
     }
 }
 
+let isMultiRollSequenceActive = false;
+
 rollButton.addEventListener("click", () => {
-    if (isAutoRollActive || isRolling) return;
-    executeRoll();
+    if (isAutoRollActive || isRolling || isMultiRollSequenceActive) return;
+    if (isMultiRollEventActive && multiRollCount > 1) {
+        isMultiRollSequenceActive = true;
+        rollButton.disabled = true;
+        triggerMultiRoll(multiRollCount);
+    } else {
+        executeRoll();
+    }
 });
+
+function triggerMultiRoll(remaining) {
+    executeRoll(() => {
+        remaining--;
+        if (remaining > 0) {
+            triggerMultiRoll(remaining);
+        } else {
+            isMultiRollSequenceActive = false;
+            rollButton.disabled = false;
+        }
+    });
+}
 
 function startAutoRoll() {
     if (!isAutoRollActive) return;
@@ -1195,11 +1292,18 @@ function connectPlayerAccountAuth() {
                         // Nouveau compte, pas encore de sauvegarde cloud : on pousse la progression actuelle
                         saveGame();
                     }
+                    checkAchievements();
                 });
             } else {
+                const wasLoggedIn = loggedInUid !== null;
                 loggedInUid = null;
                 loggedInUsername = null;
                 updateAccountUI();
+                if (wasLoggedIn) {
+                    // Vraie déconnexion (pas juste l'état initial en invité) : on efface la
+                    // progression locale pour éviter de la dupliquer sur un nouveau compte.
+                    resetToFreshGameState();
+                }
             }
         });
     } else {
@@ -1270,14 +1374,81 @@ accountLogoutButton.addEventListener("click", () => {
     playSound("click");
 });
 
+accountChangeUsernameButton.addEventListener("click", () => {
+    const newUsername = accountNewUsernameInput.value.trim();
+    accountChangeUsernameMessage.style.color = "#ff6b6b";
+    accountChangeUsernameMessage.textContent = "";
+
+    if (!isValidUsername(newUsername)) {
+        accountChangeUsernameMessage.textContent = "3 à 16 caractères, lettres/chiffres/_ seulement.";
+        return;
+    }
+    if (newUsername === loggedInUsername) {
+        accountChangeUsernameMessage.textContent = "C'est déjà ton pseudo actuel.";
+        return;
+    }
+    if (!window.playerAccount || !window.playerAccount.changeUsername) return;
+
+    window.playerAccount.changeUsername(newUsername)
+        .then(() => {
+            loggedInUsername = newUsername;
+            accountUsernameDisplay.textContent = newUsername;
+            accountNewUsernameInput.value = "";
+            accountChangeUsernameMessage.style.color = "#4caf50";
+            accountChangeUsernameMessage.textContent = "Pseudo changé avec succès !";
+            playSound("success");
+            saveGame(); // pousse le nouveau pseudo vers players/ et leaderboard/
+        })
+        .catch((err) => {
+            console.error("Erreur changement de pseudo :", err.code, err.message);
+            if (err.code === "auth/email-already-in-use") {
+                accountChangeUsernameMessage.textContent = "Ce pseudo est déjà pris.";
+            } else if (err.code === "auth/requires-recent-login") {
+                accountChangeUsernameMessage.textContent = "Déconnecte-toi puis reconnecte-toi avant de réessayer.";
+            } else {
+                accountChangeUsernameMessage.textContent = "Erreur : " + (err.code || err.message || "inconnue");
+            }
+            playSound("click");
+        });
+});
+
 // ==========================================================================
-// CLASSEMENT : top 100 joueurs par pièces, basé sur les comptes créés.
+// CLASSEMENT : top 100 joueurs, par pièces / rolls totaux / rareté la plus rare.
 // ==========================================================================
 
+let lastLeaderboardData = null;
+let currentLeaderboardCategory = "coins";
+
+const leaderboardTabCoins = document.getElementById("leaderboardTabCoins");
+const leaderboardTabRolls = document.getElementById("leaderboardTabRolls");
+const leaderboardTabRarest = document.getElementById("leaderboardTabRarest");
+
+const LEADERBOARD_CATEGORIES = {
+    coins: {
+        sortKey: (e) => e.coins || 0,
+        format: (e) => `${formatNumber(e.coins || 0)} 🪙`
+    },
+    rolls: {
+        sortKey: (e) => e.totalRolls || 0,
+        format: (e) => `${formatNumber(e.totalRolls || 0)} 🎲`
+    },
+    rarest: {
+        sortKey: (e) => e.rarestOddsNumber || 0,
+        format: (e) => e.rarestName ? `${e.rarestName} (1/${formatOdds(e.rarestOddsNumber)})` : "Aucune"
+    }
+};
+
+function updateLeaderboardTabStyles() {
+    leaderboardTabCoins.style.background = currentLeaderboardCategory === "coins" ? "#5865f2" : "#292929";
+    leaderboardTabRolls.style.background = currentLeaderboardCategory === "rolls" ? "#5865f2" : "#292929";
+    leaderboardTabRarest.style.background = currentLeaderboardCategory === "rarest" ? "#5865f2" : "#292929";
+}
+
 function renderLeaderboard(data) {
+    const category = LEADERBOARD_CATEGORIES[currentLeaderboardCategory];
     const entries = Object.values(data || {})
         .filter(e => e && e.username)
-        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+        .sort((a, b) => category.sortKey(b) - category.sortKey(a))
         .slice(0, 100);
 
     leaderboardList.innerHTML = "";
@@ -1299,20 +1470,32 @@ function renderLeaderboard(data) {
         rank.textContent = `#${index + 1}  ${entry.username}`;
         rank.style.fontWeight = "bold";
 
-        const coinsSpan = document.createElement("span");
-        coinsSpan.textContent = `${formatNumber(entry.coins || 0)} 🪙`;
-        coinsSpan.style.color = "#ffd700";
+        const valueSpan = document.createElement("span");
+        valueSpan.textContent = category.format(entry);
+        valueSpan.style.color = "#ffd700";
 
         item.appendChild(rank);
-        item.appendChild(coinsSpan);
+        item.appendChild(valueSpan);
         leaderboardList.appendChild(item);
     });
 }
+
+function switchLeaderboardTab(category) {
+    currentLeaderboardCategory = category;
+    updateLeaderboardTabStyles();
+    if (lastLeaderboardData) renderLeaderboard(lastLeaderboardData);
+}
+
+leaderboardTabCoins.addEventListener("click", () => { playSound("click"); switchLeaderboardTab("coins"); });
+leaderboardTabRolls.addEventListener("click", () => { playSound("click"); switchLeaderboardTab("rolls"); });
+leaderboardTabRarest.addEventListener("click", () => { playSound("click"); switchLeaderboardTab("rarest"); });
 
 leaderboardButton.addEventListener("click", () => {
     playSound("click");
     leaderboardWindow.style.display = "flex";
     leaderboardList.innerHTML = "";
+    currentLeaderboardCategory = "coins";
+    updateLeaderboardTabStyles();
 
     if (!loggedInUid) {
         leaderboardNoAccountMessage.style.display = "block";
@@ -1328,6 +1511,7 @@ leaderboardButton.addEventListener("click", () => {
     window.playerAccount.getLeaderboard()
         .then((data) => {
             leaderboardLoading.style.display = "none";
+            lastLeaderboardData = data;
             renderLeaderboard(data);
         })
         .catch(() => {
@@ -1336,6 +1520,58 @@ leaderboardButton.addEventListener("click", () => {
 });
 
 closeLeaderboard.addEventListener("click", () => { playSound("click"); leaderboardWindow.style.display = "none"; });
+
+// ==========================================================================
+// STATISTIQUES : pièces, rolls totaux, rareté la plus rare, temps joué.
+// ==========================================================================
+
+function getRarestOwnedRarity() {
+    for (let i = rarities.length - 1; i >= 0; i--) {
+        if (inventory[rarities[i].name] > 0) return rarities[i];
+    }
+    return null;
+}
+
+function formatPlayTime(totalSeconds) {
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return { totalMinutes, hours, minutes };
+}
+
+function updateStatsUI() {
+    statsList.innerHTML = "";
+
+    const rarest = getRarestOwnedRarity();
+    const time = formatPlayTime(totalPlayTimeSeconds);
+
+    const rows = [
+        { label: "🪙 Pièces", value: formatNumber(coins) },
+        { label: "🎲 Rolls totaux", value: formatNumber(totalRolls) },
+        { label: "💎 Rareté la plus rare", value: rarest ? `${rarest.name} (1/${formatOdds(rarest.oddsNumber)})` : "Aucune" },
+        { label: "🕒 Temps joué", value: `${time.totalMinutes} min (${time.hours}h ${time.minutes}min)` }
+    ];
+
+    rows.forEach(row => {
+        const item = document.createElement("div");
+        item.className = "inventoryItem";
+        const label = document.createElement("span");
+        label.textContent = row.label;
+        const value = document.createElement("span");
+        value.textContent = row.value;
+        value.style.fontWeight = "bold";
+        item.appendChild(label);
+        item.appendChild(value);
+        statsList.appendChild(item);
+    });
+}
+
+statsButton.addEventListener("click", () => {
+    playSound("click");
+    updateStatsUI();
+    statsWindow.style.display = "flex";
+});
+closeStats.addEventListener("click", () => { playSound("click"); statsWindow.style.display = "none"; });
 
 // --- Raccourci admin discret : Ctrl + Shift tenus, puis 4, 5, 6 dans l'ordre ---
 // (utilise e.code, indépendant de la disposition du clavier, ex: FR-CA)
@@ -1627,6 +1863,47 @@ adminCancelForceEventRarityButton.addEventListener("click", () => {
     }
 });
 
+adminGiveCoinsButton.addEventListener("click", () => {
+    const amount = parseInt(adminGiveCoinsInput.value) || 0;
+    if (amount <= 0) return;
+    playSound("success");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        coins += amount;
+        updateUIStats();
+        checkAchievements();
+        saveGame();
+    } else {
+        if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+        window.firebaseAdmin.push({ giveCoins: { amount, requestId: Date.now() } });
+    }
+});
+
+adminStartMultiRollEvent.addEventListener("click", () => {
+    const count = Math.max(2, parseInt(adminMultiRollCountInput.value) || 2);
+    const durationSec = (parseInt(adminMultiRollDurationInput.value) || 1) * 60;
+    playSound("success");
+    adminPage.style.display = "none";
+    const eventData = { count, endsAt: Date.now() + durationSec * 1000 };
+    if (adminTestModeToggle.checked) {
+        applyMultiRollEventFromState(eventData);
+    } else {
+        if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
+        window.firebaseAdmin.push({ multiRollEvent: eventData });
+    }
+});
+
+adminStopMultiRollEvent.addEventListener("click", () => {
+    playSound("click");
+    adminPage.style.display = "none";
+    if (adminTestModeToggle.checked) {
+        applyMultiRollEventFromState(null);
+    } else {
+        if (!window.firebaseAdmin) return;
+        window.firebaseAdmin.clear("multiRollEvent");
+    }
+});
+
 // ==========================================================================
 // APPLICATION DES ÉTATS ADMIN REÇUS DE FIREBASE (pour tous les joueurs)
 // ==========================================================================
@@ -1634,6 +1911,7 @@ adminCancelForceEventRarityButton.addEventListener("click", () => {
 let lastAppliedMessageId = null;
 let lastAppliedForcedRarityId = null;
 let lastAppliedForcedEventRarityId = null;
+let lastAppliedGiveCoinsRequestId = null;
 let lastAppliedUnlockAchievementRequestId = null;
 
 function applyMoneyEventFromState(moneyEvent) {
@@ -1729,6 +2007,38 @@ function applyCountdownFromState(countdown) {
     adminCountdownInterval = setInterval(tick, 1000);
 }
 
+function applyMultiRollEventFromState(multiRollEvent) {
+    if (multiRollCountdownInterval) clearInterval(multiRollCountdownInterval);
+
+    if (!multiRollEvent || multiRollEvent.endsAt <= Date.now()) {
+        isMultiRollEventActive = false;
+        multiRollCount = 1;
+        if (multiRollEventBanner) multiRollEventBanner.style.display = "none";
+        return;
+    }
+
+    isMultiRollEventActive = true;
+    multiRollCount = multiRollEvent.count;
+    if (multiRollEventBanner) {
+        multiRollEventBanner.style.display = "block";
+        multiRollEventCountDisplay.textContent = multiRollCount;
+    }
+
+    function tick() {
+        const remaining = Math.max(0, Math.round((multiRollEvent.endsAt - Date.now()) / 1000));
+        const m = Math.floor(remaining / 60), s = remaining % 60;
+        if (multiRollEventTimer) multiRollEventTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (remaining <= 0) {
+            clearInterval(multiRollCountdownInterval);
+            isMultiRollEventActive = false;
+            multiRollCount = 1;
+            if (multiRollEventBanner) multiRollEventBanner.style.display = "none";
+        }
+    }
+    tick();
+    multiRollCountdownInterval = setInterval(tick, 1000);
+}
+
 function handleAdminState(state) {
     // Message global
     if (state.message && state.message.id !== lastAppliedMessageId) {
@@ -1777,6 +2087,18 @@ function handleAdminState(state) {
         lastAppliedForcedEventRarityId = null;
         forcedEventRarity = null;
     }
+
+    // Don de pièces (une seule fois par requestId, chez chaque joueur connecté)
+    if (state.giveCoins && state.giveCoins.requestId !== lastAppliedGiveCoinsRequestId) {
+        lastAppliedGiveCoinsRequestId = state.giveCoins.requestId;
+        coins += state.giveCoins.amount;
+        updateUIStats();
+        checkAchievements();
+        saveGame();
+    }
+
+    // Event Multi-Roll (piloté entièrement par l'état reçu)
+    applyMultiRollEventFromState(state.multiRollEvent);
 }
 
 function connectAdminSync() {
@@ -1855,3 +2177,16 @@ buyCoinMultButton.addEventListener("click", () => {
 
 loadGame();
 checkAchievements();
+
+// --- Suivi du temps de jeu total ---
+setInterval(() => {
+    totalPlayTimeSeconds++;
+}, 1000);
+
+setInterval(() => {
+    saveGame();
+}, 60000);
+
+window.addEventListener("beforeunload", () => {
+    saveGame();
+});
