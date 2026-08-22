@@ -47,6 +47,9 @@
             <div id="luckEventBanner" style="display: none; background: #5865f2; color: white; font-weight: bold; padding: 8px 15px; border-radius: 8px; font-size: 14px; text-align: center;">
                 🍀 EVENT LUCK : Chance x<span id="luckEventMult">2</span> (<span id="luckEventTimer">15:00</span>)
             </div>
+            <div id="multiRollEventBanner" style="display: none; background: #00e5ff; color: #111; font-weight: bold; padding: 8px 15px; border-radius: 8px; font-size: 14px; text-align: center;">
+                🎲 EVENT MULTI-ROLL : x<span id="multiRollEventCount">2</span> rolls par clic (<span id="multiRollEventTimer">15:00</span>)
+            </div>
         </div>
 
         <!-- Stats -->
@@ -81,7 +84,13 @@
             </div>
             <div></div>
         </div>
-        <button id="shopButton">🛒 BOUTIQUE</button>
+        <div style="display: grid; grid-template-columns: 210px 1fr 210px; align-items: center; gap: 10px; width: 100%; max-width: 640px; margin: 0 auto;">
+            <button id="statsButton" style="margin: 15px 0 0 0;">📊 STATISTIQUES</button>
+            <div style="display: flex; justify-content: center;">
+                <button id="shopButton" style="margin: 15px 0 0 0;">🛒 BOUTIQUE</button>
+            </div>
+            <div></div>
+        </div>
         <button id="achievementsButton">🏆 SUCCÈS</button>
         <button id="settingsButton">⚙️ PARAMÈTRES</button>
         <button id="eventButton" style="display: none; margin: 15px auto 0; font-size: 18px; font-weight: bold; padding: 12px 25px; border: none; border-radius: 10px; background: linear-gradient(90deg, #8338ec, #00e5ff); color: white; cursor: pointer; transition: 0.15s; width: 210px; box-shadow: 0 0 15px rgba(131, 56, 236, 0.5);">🎉 Événement Julesb4</button>
@@ -159,14 +168,30 @@
     <div id="leaderboardWindow" class="inventoryWindow">
         <div class="inventoryBox">
             <div class="inventoryHeader">
-                <h2>🏅 Classement — Pièces</h2>
+                <h2>🏅 Classement</h2>
                 <button id="closeLeaderboard">✕</button>
+            </div>
+            <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+                <button id="leaderboardTabCoins" style="flex: 1; padding: 8px 4px; border: none; border-radius: 6px; background: #5865f2; color: white; font-weight: bold; cursor: pointer; font-size: 12px;">🪙 Pièces</button>
+                <button id="leaderboardTabRolls" style="flex: 1; padding: 8px 4px; border: none; border-radius: 6px; background: #292929; color: white; font-weight: bold; cursor: pointer; font-size: 12px;">🎲 Rolls</button>
+                <button id="leaderboardTabRarest" style="flex: 1; padding: 8px 4px; border: none; border-radius: 6px; background: #292929; color: white; font-weight: bold; cursor: pointer; font-size: 12px;">💎 Rareté</button>
             </div>
             <div id="leaderboardNoAccountMessage" style="display: none; text-align: center; padding: 25px 10px; color: #ccc; font-size: 14px; line-height: 1.6;">
                 🔒 Crée un compte dans <strong>⚙️ Paramètres</strong> pour voir le classement et y apparaître !
             </div>
             <div id="leaderboardLoading" style="display: none; text-align: center; padding: 25px 10px; color: #888; font-size: 14px;">Chargement du classement...</div>
             <div id="leaderboardList" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <!-- Fenêtre Statistiques -->
+    <div id="statsWindow" class="inventoryWindow">
+        <div class="inventoryBox">
+            <div class="inventoryHeader">
+                <h2>📊 Statistiques</h2>
+                <button id="closeStats">✕</button>
+            </div>
+            <div id="statsList"></div>
         </div>
     </div>
 
@@ -208,6 +233,16 @@
 
                     <div id="accountLoggedInSection" style="display: none;">
                         <p style="font-size: 14px; margin-bottom: 10px;">Connecté en tant que <strong id="accountUsernameDisplay" style="color: #5865f2;"></strong></p>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Changer de pseudo :</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="accountNewUsernameInput" style="flex: 1; min-width: 0; padding: 8px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box; font-size: 13px;">
+                                <button id="accountChangeUsernameButton" style="padding: 8px 12px; border: none; border-radius: 6px; background: #5865f2; color: white; font-weight: bold; cursor: pointer; font-size: 12px; white-space: nowrap;">Changer</button>
+                            </div>
+                            <div id="accountChangeUsernameMessage" style="font-size: 12px; margin-top: 6px;"></div>
+                        </div>
+
                         <button id="accountLogoutButton" style="width: 100%; padding: 10px; border: none; border-radius: 6px; background: #ff3b30; color: white; font-weight: bold; cursor: pointer;">Déconnexion</button>
                     </div>
                 </div>
@@ -365,6 +400,17 @@
                     <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ Donne le succès (et sa récompense) directement, sans avoir à remplir la condition. "Annuler" empêche les joueurs qui n'ont pas encore reçu le succès de l'obtenir — ça ne retire rien à ceux qui l'ont déjà.</p>
                 </div>
 
+                <!-- Donner des Pièces -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #ffb300;">🪙 Donner des Pièces</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Montant :</label>
+                        <input type="number" id="adminGiveCoinsInput" value="1000" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <button id="adminGiveCoinsButton" style="width: 100%; padding: 12px; background: #ffb300; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Donner 🎁</button>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">Ajoute ce montant aux pièces de chaque joueur connecté à ce moment-là (une seule fois, pas récurrent).</p>
+                </div>
+
                 <!-- Event Julesb4 -->
                 <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
                     <h3 style="margin-top: 0; color: #8338ec;">🎉 Event Julesb4 (5 raretés exclusives)</h3>
@@ -387,6 +433,24 @@
                         <button id="adminCancelForceEventRarityButton" style="padding: 12px 15px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler 🛑</button>
                     </div>
                     <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">⚠️ S'applique au prochain ROLL JULESB4 (dans la page event) de chaque joueur. N'affecte pas les rolls du jeu de base.</p>
+                </div>
+
+                <!-- Event Multi-Roll -->
+                <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin-top: 0; color: #00e5ff;">🎲 Event Multi-Roll</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Rolls simultanés par clic :</label>
+                        <input type="number" id="adminMultiRollCountInput" value="2" min="2" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px;">Durée (minutes) :</label>
+                        <input type="number" id="adminMultiRollDurationInput" value="5" min="1" style="width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px;">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="adminStartMultiRollEvent" style="flex: 1; padding: 12px; background: #00e5ff; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Lancer 🚀</button>
+                        <button id="adminStopMultiRollEvent" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Arrêter 🛑</button>
+                    </div>
+                    <p style="font-size: 12px; color: #888; margin-top: 10px; margin-bottom: 0;">Pendant l'event, un clic sur ROLL déclenche plusieurs rolls d'un coup pour chaque joueur.</p>
                 </div>
 
                 <!-- Compte à rebours Admin Abuse -->
@@ -439,19 +503,33 @@
         const playerAuth = getAuth(playerApp);
         const playerDb = getDatabase(playerApp);
 
-        function usernameToEmail(username) {
-            return username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") + "@julesb4-rng.local";
+        // Génère un email interne unique et stable, jamais montré au joueur,
+        // et qui ne change JAMAIS après l'inscription (évite updateEmail, bloqué par Firebase).
+        function generateInternalEmail() {
+            return "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10) + "@julesb4-rng.local";
         }
 
         window.playerAccount = {
             signUp(username, password) {
-                const email = usernameToEmail(username);
-                return createUserWithEmailAndPassword(playerAuth, email, password)
-                    .then((cred) => updateProfile(cred.user, { displayName: username }).then(() => cred));
+                const usernameRef = ref(playerDb, "usernames/" + username);
+                return get(usernameRef).then((snap) => {
+                    if (snap.exists()) {
+                        return Promise.reject({ code: "auth/email-already-in-use" });
+                    }
+                    const authEmail = generateInternalEmail();
+                    return createUserWithEmailAndPassword(playerAuth, authEmail, password).then((cred) => {
+                        return updateProfile(cred.user, { displayName: username }).catch(() => {})
+                            .then(() => set(usernameRef, { uid: cred.user.uid, authEmail }))
+                            .then(() => cred);
+                    });
+                });
             },
             login(username, password) {
-                const email = usernameToEmail(username);
-                return signInWithEmailAndPassword(playerAuth, email, password);
+                return get(ref(playerDb, "usernames/" + username)).then((snap) => {
+                    if (!snap.exists()) return Promise.reject({ code: "auth/user-not-found" });
+                    const authEmail = snap.val().authEmail;
+                    return signInWithEmailAndPassword(playerAuth, authEmail, password);
+                });
             },
             logout() {
                 return signOut(playerAuth);
@@ -461,13 +539,34 @@
             },
             saveToCloud(uid, data) {
                 return set(ref(playerDb, "players/" + uid), data)
-                    .then(() => set(ref(playerDb, "leaderboard/" + uid), { username: data.username, coins: data.coins || 0 }));
+                    .then(() => set(ref(playerDb, "leaderboard/" + uid), {
+                        username: data.username,
+                        coins: data.coins || 0,
+                        totalRolls: data.totalRolls || 0,
+                        rarestOddsNumber: data.rarestOddsNumber || 0,
+                        rarestName: data.rarestName || ""
+                    }));
             },
             loadFromCloud(uid) {
                 return get(ref(playerDb, "players/" + uid)).then(snap => snap.exists() ? snap.val() : null);
             },
             getLeaderboard() {
                 return get(ref(playerDb, "leaderboard")).then(snap => snap.exists() ? snap.val() : {});
+            },
+            changeUsername(newUsername) {
+                const user = playerAuth.currentUser;
+                if (!user) return Promise.reject({ code: "auth/not-logged-in" });
+                const oldUsername = user.displayName;
+                const newRef = ref(playerDb, "usernames/" + newUsername);
+                return get(newRef).then((snap) => {
+                    if (snap.exists()) return Promise.reject({ code: "auth/email-already-in-use" });
+                    return get(ref(playerDb, "usernames/" + oldUsername)).then((oldSnap) => {
+                        const authEmail = oldSnap.exists() ? oldSnap.val().authEmail : user.email;
+                        return set(newRef, { uid: user.uid, authEmail })
+                            .then(() => set(ref(playerDb, "usernames/" + oldUsername), null))
+                            .then(() => updateProfile(user, { displayName: newUsername }).catch(() => {}));
+                    });
+                });
             }
         };
 
