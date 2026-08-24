@@ -736,6 +736,9 @@
             getActiveTradeId(uid) {
                 return get(ref(playerDb, "activeTradePointer/" + uid)).then(snap => snap.exists() ? snap.val() : null);
             },
+            listenActiveTradePointer(uid, callback) {
+                onValue(ref(playerDb, "activeTradePointer/" + uid), (snap) => callback(snap.exists() ? snap.val() : null));
+            },
             listenActiveTrade(tradeId, callback) {
                 onValue(ref(playerDb, "activeTrades/" + tradeId), (snap) => callback(snap.exists() ? snap.val() : null));
             },
