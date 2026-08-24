@@ -459,6 +459,7 @@ let currentTradeData = null;
 let mySide = null;
 let currentTradeRequests = {};
 let lastAppliedTradeId = null;
+let listeningTradeId = null;
 
 const tradeRequestBanner = document.getElementById("tradeRequestBanner");
 const tradeRequestBannerText = document.getElementById("tradeRequestBannerText");
@@ -1393,8 +1394,12 @@ function connectPlayerAccountAuth() {
                     currentTradeRequests = requests;
                     if (tradeWindow.style.display !== "none" && !currentTradeId) renderTradeIncoming();
                 });
-                window.playerAccount.getActiveTradeId(user.uid).then((tradeId) => {
-                    if (tradeId) enterTradeSession(tradeId);
+                window.playerAccount.listenActiveTradePointer(user.uid, (tradeId) => {
+                    if (tradeId) {
+                        if (listeningTradeId !== tradeId) enterTradeSession(tradeId, false);
+                    } else if (currentTradeId) {
+                        exitTradeSession();
+                    }
                 });
                 window.playerAccount.getTradesEnabled(user.uid).then((enabled) => {
                     tradesEnabledToggle.checked = enabled;
@@ -1787,6 +1792,7 @@ function exitTradeSession() {
     currentTradeId = null;
     currentTradeData = null;
     mySide = null;
+    listeningTradeId = null;
     tradeSessionScreen.style.display = "none";
     if (tradeWindow.style.display !== "none") {
         tradeHomeScreen.style.display = "block";
@@ -1829,7 +1835,6 @@ function handleTradeUpdate(tradeData) {
         if (currentTradeId) exitTradeSession();
         return;
     }
-    currentTradeId = currentTradeId || null;
     currentTradeData = tradeData;
     mySide = (loggedInUid === tradeData.uidA) ? "A" : "B";
 
@@ -1838,14 +1843,30 @@ function handleTradeUpdate(tradeData) {
         applyTradeExchange(tradeData);
         return;
     }
-    renderTradeSession();
+    if (tradeWindow.style.display !== "none") renderTradeSession();
 }
 
-function enterTradeSession(tradeId) {
+// autoOpenWindow: true seulement pour celui qui vient de cliquer "Accepter" —
+// pour l'autre joueur (notifié en temps réel via listenActiveTradePointer),
+// la session se prépare silencieusement, sans lui sauter à l'écran.
+function enterTradeSession(tradeId, autoOpenWindow) {
+    if (listeningTradeId === tradeId) {
+        if (autoOpenWindow) {
+            tradeWindow.style.display = "flex";
+            tradeHomeScreen.style.display = "none";
+            tradeSessionScreen.style.display = "block";
+            renderTradeSession();
+        }
+        return;
+    }
+    listeningTradeId = tradeId;
     currentTradeId = tradeId;
-    tradeHomeScreen.style.display = "none";
-    tradeSessionScreen.style.display = "block";
     populateTradeItemSelect();
+    if (autoOpenWindow) {
+        tradeWindow.style.display = "flex";
+        tradeHomeScreen.style.display = "none";
+        tradeSessionScreen.style.display = "block";
+    }
     window.playerAccount.listenActiveTrade(tradeId, handleTradeUpdate);
 }
 
@@ -1878,7 +1899,7 @@ function renderTradeIncoming() {
         acceptBtn.addEventListener("click", () => {
             playSound("success");
             window.playerAccount.acceptTradeRequest(loggedInUid, loggedInUsername, requestId, req.fromUid, req.fromUsername)
-                .then((tradeId) => enterTradeSession(tradeId));
+                .then((tradeId) => enterTradeSession(tradeId, true));
         });
 
         const declineBtn = document.createElement("button");
@@ -2039,8 +2060,7 @@ tradeRequestAcceptBtn.addEventListener("click", () => {
     playSound("success");
     window.playerAccount.acceptTradeRequest(loggedInUid, loggedInUsername, requestId, fromUid, fromUsername)
         .then((tradeId) => {
-            enterTradeSession(tradeId);
-            tradeWindow.style.display = "flex";
+            enterTradeSession(tradeId, true);
         });
     showNextTradeRequestNotification();
 });
