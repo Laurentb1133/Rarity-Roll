@@ -1,6 +1,8 @@
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let isSoundMuted = localStorage.getItem("rngSoundMuted") === "1";
 
 function playSound(type) {
+    if (isSoundMuted) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -428,6 +430,45 @@ const statsButton = document.getElementById("statsButton");
 const statsWindow = document.getElementById("statsWindow");
 const closeStats = document.getElementById("closeStats");
 const statsList = document.getElementById("statsList");
+
+const tradeButton = document.getElementById("tradeButton");
+const tradeWindow = document.getElementById("tradeWindow");
+const closeTrade = document.getElementById("closeTrade");
+const tradeNoAccountMessage = document.getElementById("tradeNoAccountMessage");
+const tradeHomeScreen = document.getElementById("tradeHomeScreen");
+const tradeSessionScreen = document.getElementById("tradeSessionScreen");
+const tradeTargetUsernameInput = document.getElementById("tradeTargetUsernameInput");
+const tradeSendRequestButton = document.getElementById("tradeSendRequestButton");
+const tradeSendError = document.getElementById("tradeSendError");
+const tradeIncomingList = document.getElementById("tradeIncomingList");
+const tradePartnerName = document.getElementById("tradePartnerName");
+const tradeMyOfferList = document.getElementById("tradeMyOfferList");
+const tradeTheirOfferList = document.getElementById("tradeTheirOfferList");
+const tradeMyConfirmedBadge = document.getElementById("tradeMyConfirmedBadge");
+const tradeTheirConfirmedBadge = document.getElementById("tradeTheirConfirmedBadge");
+const tradeItemSelect = document.getElementById("tradeItemSelect");
+const tradeItemQtyInput = document.getElementById("tradeItemQtyInput");
+const tradeAddItemButton = document.getElementById("tradeAddItemButton");
+const tradeCoinsInput = document.getElementById("tradeCoinsInput");
+const tradeConfirmButton = document.getElementById("tradeConfirmButton");
+const tradeCancelButton = document.getElementById("tradeCancelButton");
+const tradesEnabledToggle = document.getElementById("tradesEnabledToggle");
+
+let currentTradeId = null;
+let currentTradeData = null;
+let mySide = null;
+let currentTradeRequests = {};
+let lastAppliedTradeId = null;
+
+const tradeRequestBanner = document.getElementById("tradeRequestBanner");
+const tradeRequestBannerText = document.getElementById("tradeRequestBannerText");
+const tradeRequestAcceptBtn = document.getElementById("tradeRequestAcceptBtn");
+const tradeRequestDeclineBtn = document.getElementById("tradeRequestDeclineBtn");
+let tradeRequestQueue = [];
+let tradeRequestBannerTimeout = null;
+let tradeRequestBannerShowing = false;
+let seenTradeRequestIds = new Set();
+
 const inventoryWindow = document.getElementById("inventoryWindow");
 const closeInventory = document.getElementById("closeInventory");
 const inventoryList = document.getElementById("inventoryList");
@@ -466,6 +507,13 @@ function triggerAchievementBanner(text) {
 }
 
 const settingsButton = document.getElementById("settingsButton");
+const soundToggle = document.getElementById("soundToggle");
+soundToggle.checked = !isSoundMuted;
+soundToggle.addEventListener("change", () => {
+    isSoundMuted = !soundToggle.checked;
+    localStorage.setItem("rngSoundMuted", isSoundMuted ? "1" : "0");
+    if (!isSoundMuted) playSound("click");
+});
 const eventButton = document.getElementById("eventButton");
 const eventPage = document.getElementById("eventPage");
 const closeEventPage = document.getElementById("closeEventPage");
@@ -505,6 +553,45 @@ const adminLoginButton = document.getElementById("adminLoginButton");
 const adminLoginError = document.getElementById("adminLoginError");
 const adminLogoutButton = document.getElementById("adminLogoutButton");
 const adminTestModeToggle = document.getElementById("adminTestModeToggle");
+const adminTargetGlobal = document.getElementById("adminTargetGlobal");
+const adminTargetSpecific = document.getElementById("adminTargetSpecific");
+const adminTargetSpecificWrapper = document.getElementById("adminTargetSpecificWrapper");
+const adminTargetUsernameSelect = document.getElementById("adminTargetUsernameSelect");
+const adminRefreshTargetList = document.getElementById("adminRefreshTargetList");
+
+function refreshAdminTargetList() {
+    if (!window.playerAccount || !window.playerAccount.getAllUsernames) return;
+    const previousValue = adminTargetUsernameSelect.value;
+    adminTargetUsernameSelect.innerHTML = `<option value="">— Chargement... —</option>`;
+    window.playerAccount.getAllUsernames().then((usernames) => {
+        adminTargetUsernameSelect.innerHTML = `<option value="">— Choisir un joueur —</option>`;
+        usernames.sort((a, b) => a.localeCompare(b)).forEach((username) => {
+            const option = document.createElement("option");
+            option.value = username;
+            option.textContent = username;
+            adminTargetUsernameSelect.appendChild(option);
+        });
+        if (usernames.includes(previousValue)) adminTargetUsernameSelect.value = previousValue;
+    }).catch(() => {
+        adminTargetUsernameSelect.innerHTML = `<option value="">— Erreur de chargement —</option>`;
+    });
+}
+
+adminTargetGlobal.addEventListener("change", () => { adminTargetSpecificWrapper.style.display = "none"; });
+adminTargetSpecific.addEventListener("change", () => {
+    adminTargetSpecificWrapper.style.display = "flex";
+    refreshAdminTargetList();
+});
+adminRefreshTargetList.addEventListener("click", () => { playSound("click"); refreshAdminTargetList(); });
+
+// Retourne null pour "tout le monde", ou le pseudo choisi pour un joueur précis.
+// Retourne undefined si le mode "joueur précis" est choisi mais aucun joueur n'est sélectionné.
+function getAdminTarget() {
+    if (adminTargetSpecific.checked) {
+        return adminTargetUsernameSelect.value || undefined;
+    }
+    return null;
+}
 
 const adminCountdownBanner = document.getElementById("adminCountdownBanner");
 const adminCountdownLabel = document.getElementById("adminCountdownLabel");
@@ -1294,11 +1381,37 @@ function connectPlayerAccountAuth() {
                     }
                     checkAchievements();
                 });
+
+                // --- Trade : écoute des demandes reçues, reprise d'un trade en cours, préférence ---
+                window.playerAccount.listenTradeRequests(user.uid, (requests) => {
+                    Object.keys(requests).forEach((requestId) => {
+                        if (!seenTradeRequestIds.has(requestId)) {
+                            seenTradeRequestIds.add(requestId);
+                            enqueueTradeRequestNotification(requestId, requests[requestId]);
+                        }
+                    });
+                    currentTradeRequests = requests;
+                    if (tradeWindow.style.display !== "none" && !currentTradeId) renderTradeIncoming();
+                });
+                window.playerAccount.getActiveTradeId(user.uid).then((tradeId) => {
+                    if (tradeId) enterTradeSession(tradeId);
+                });
+                window.playerAccount.getTradesEnabled(user.uid).then((enabled) => {
+                    tradesEnabledToggle.checked = enabled;
+                });
             } else {
                 const wasLoggedIn = loggedInUid !== null;
                 loggedInUid = null;
                 loggedInUsername = null;
                 updateAccountUI();
+                currentTradeRequests = {};
+                seenTradeRequestIds = new Set();
+                tradeRequestQueue = [];
+                if (tradeRequestBannerTimeout) clearTimeout(tradeRequestBannerTimeout);
+                tradeRequestBannerShowing = false;
+                tradeRequestBanner.style.display = "none";
+                if (currentTradeId) exitTradeSession();
+                tradesEnabledToggle.checked = true;
                 if (wasLoggedIn) {
                     // Vraie déconnexion (pas juste l'état initial en invité) : on efface la
                     // progression locale pour éviter de la dupliquer sur un nouveau compte.
@@ -1573,6 +1686,373 @@ statsButton.addEventListener("click", () => {
 });
 closeStats.addEventListener("click", () => { playSound("click"); statsWindow.style.display = "none"; });
 
+// ==========================================================================
+// TRADE : échanger pièces et raretés (jeu de base) entre deux joueurs connectés.
+// ==========================================================================
+
+function getTradePartnerUsername() {
+    if (!currentTradeData) return "";
+    return mySide === "A" ? currentTradeData.usernameB : currentTradeData.usernameA;
+}
+function getMyOffer() {
+    if (!currentTradeData) return { coins: 0, items: {} };
+    return mySide === "A" ? currentTradeData.offerA : currentTradeData.offerB;
+}
+function getTheirOffer() {
+    if (!currentTradeData) return { coins: 0, items: {} };
+    return mySide === "A" ? currentTradeData.offerB : currentTradeData.offerA;
+}
+function amIConfirmed() {
+    if (!currentTradeData) return false;
+    return mySide === "A" ? !!currentTradeData.confirmA : !!currentTradeData.confirmB;
+}
+function isPartnerConfirmed() {
+    if (!currentTradeData) return false;
+    return mySide === "A" ? !!currentTradeData.confirmB : !!currentTradeData.confirmA;
+}
+
+function renderOfferList(container, offer) {
+    container.innerHTML = "";
+    const items = (offer && offer.items) || {};
+    const keys = Object.keys(items).filter(k => items[k] > 0);
+    if (keys.length === 0 && (!offer || !offer.coins)) {
+        container.innerHTML = `<div style="color:#666;">Rien pour l'instant</div>`;
+        return;
+    }
+    keys.forEach(name => {
+        const row = document.createElement("div");
+        row.textContent = `${name} x${items[name]}`;
+        container.appendChild(row);
+    });
+    if (offer && offer.coins > 0) {
+        const row = document.createElement("div");
+        row.style.color = "#ffd700";
+        row.textContent = `🪙 ${formatNumber(offer.coins)}`;
+        container.appendChild(row);
+    }
+}
+
+function renderTradeSession() {
+    if (!currentTradeData) return;
+    tradePartnerName.textContent = getTradePartnerUsername();
+    renderOfferList(tradeMyOfferList, getMyOffer());
+    renderOfferList(tradeTheirOfferList, getTheirOffer());
+    tradeMyConfirmedBadge.textContent = amIConfirmed() ? "✅" : "";
+    tradeTheirConfirmedBadge.textContent = isPartnerConfirmed() ? "✅" : "";
+    tradeConfirmButton.textContent = amIConfirmed() ? "↩️ Annuler ma confirmation" : "✅ Confirmer";
+}
+
+function getInventoryObjectForItem(name) {
+    if (rarities.some(r => r.name === name)) return inventory;
+    if (eventRarities.some(r => r.name === name)) return eventInventory;
+    return null;
+}
+
+function populateTradeItemSelect() {
+    tradeItemSelect.innerHTML = "";
+
+    const baseGroup = document.createElement("optgroup");
+    baseGroup.label = "🎲 Jeu de Base";
+    rarities.forEach(r => {
+        const owned = inventory[r.name] || 0;
+        if (owned <= 0) return;
+        const option = document.createElement("option");
+        option.value = r.name;
+        option.textContent = `${r.name} (x${owned})`;
+        baseGroup.appendChild(option);
+    });
+    if (baseGroup.children.length > 0) tradeItemSelect.appendChild(baseGroup);
+
+    const eventGroup = document.createElement("optgroup");
+    eventGroup.label = "🎉 Julesb4";
+    eventRarities.forEach(r => {
+        const owned = eventInventory[r.name] || 0;
+        if (owned <= 0) return;
+        const option = document.createElement("option");
+        option.value = r.name;
+        option.textContent = `${r.name} (x${owned})`;
+        eventGroup.appendChild(option);
+    });
+    if (eventGroup.children.length > 0) tradeItemSelect.appendChild(eventGroup);
+
+    if (tradeItemSelect.options.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Aucune rareté disponible";
+        tradeItemSelect.appendChild(option);
+    }
+}
+
+function exitTradeSession() {
+    currentTradeId = null;
+    currentTradeData = null;
+    mySide = null;
+    tradeSessionScreen.style.display = "none";
+    if (tradeWindow.style.display !== "none") {
+        tradeHomeScreen.style.display = "block";
+        renderTradeIncoming();
+        populateTradeItemSelect();
+    }
+}
+
+function applyTradeExchange(tradeData) {
+    const myOffer = mySide === "A" ? tradeData.offerA : tradeData.offerB;
+    const theirOffer = mySide === "A" ? tradeData.offerB : tradeData.offerA;
+    const partnerName = mySide === "A" ? tradeData.usernameB : tradeData.usernameA;
+
+    Object.keys(myOffer.items || {}).forEach(name => {
+        const invObj = getInventoryObjectForItem(name);
+        if (invObj) invObj[name] = Math.max(0, (invObj[name] || 0) - myOffer.items[name]);
+    });
+    coins = Math.max(0, coins - (myOffer.coins || 0));
+
+    Object.keys(theirOffer.items || {}).forEach(name => {
+        const invObj = getInventoryObjectForItem(name);
+        if (invObj) invObj[name] = (invObj[name] || 0) + theirOffer.items[name];
+    });
+    coins += (theirOffer.coins || 0);
+
+    updateUIStats();
+    updateInventory();
+    updateEventInventoryUI();
+    checkAchievements();
+    saveGame();
+    playSound("success");
+    alert(`🔄 Trade complété avec ${partnerName} !`);
+
+    window.playerAccount.endTrade(currentTradeId, tradeData.uidA, tradeData.uidB);
+    exitTradeSession();
+}
+
+function handleTradeUpdate(tradeData) {
+    if (!tradeData) {
+        if (currentTradeId) exitTradeSession();
+        return;
+    }
+    currentTradeId = currentTradeId || null;
+    currentTradeData = tradeData;
+    mySide = (loggedInUid === tradeData.uidA) ? "A" : "B";
+
+    if (tradeData.confirmA && tradeData.confirmB && lastAppliedTradeId !== currentTradeId) {
+        lastAppliedTradeId = currentTradeId;
+        applyTradeExchange(tradeData);
+        return;
+    }
+    renderTradeSession();
+}
+
+function enterTradeSession(tradeId) {
+    currentTradeId = tradeId;
+    tradeHomeScreen.style.display = "none";
+    tradeSessionScreen.style.display = "block";
+    populateTradeItemSelect();
+    window.playerAccount.listenActiveTrade(tradeId, handleTradeUpdate);
+}
+
+function renderTradeIncoming() {
+    tradeIncomingList.innerHTML = "";
+    const ids = Object.keys(currentTradeRequests || {});
+    if (ids.length === 0) {
+        tradeIncomingList.innerHTML = `<p style="color:#666; font-size:12px; margin:0;">Aucune demande reçue.</p>`;
+        return;
+    }
+    ids.forEach(requestId => {
+        const req = currentTradeRequests[requestId];
+        const row = document.createElement("div");
+        row.className = "inventoryItem";
+        row.style.flexDirection = "column";
+        row.style.alignItems = "stretch";
+        row.style.gap = "8px";
+
+        const label = document.createElement("div");
+        label.textContent = `${req.fromUsername} veut trader`;
+        label.style.fontWeight = "bold";
+
+        const btnRow = document.createElement("div");
+        btnRow.style.display = "flex";
+        btnRow.style.gap = "8px";
+
+        const acceptBtn = document.createElement("button");
+        acceptBtn.textContent = "Accepter";
+        acceptBtn.style.cssText = "flex:1; padding:8px; background:#43b581; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;";
+        acceptBtn.addEventListener("click", () => {
+            playSound("success");
+            window.playerAccount.acceptTradeRequest(loggedInUid, loggedInUsername, requestId, req.fromUid, req.fromUsername)
+                .then((tradeId) => enterTradeSession(tradeId));
+        });
+
+        const declineBtn = document.createElement("button");
+        declineBtn.textContent = "Refuser";
+        declineBtn.style.cssText = "flex:1; padding:8px; background:#ff3b30; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;";
+        declineBtn.addEventListener("click", () => {
+            playSound("click");
+            window.playerAccount.declineTradeRequest(loggedInUid, requestId);
+        });
+
+        btnRow.appendChild(acceptBtn);
+        btnRow.appendChild(declineBtn);
+        row.appendChild(label);
+        row.appendChild(btnRow);
+        tradeIncomingList.appendChild(row);
+    });
+}
+
+tradeButton.addEventListener("click", () => {
+    playSound("click");
+    tradeWindow.style.display = "flex";
+    if (!loggedInUid) {
+        tradeNoAccountMessage.style.display = "block";
+        tradeHomeScreen.style.display = "none";
+        tradeSessionScreen.style.display = "none";
+        return;
+    }
+    tradeNoAccountMessage.style.display = "none";
+    if (currentTradeId) {
+        tradeHomeScreen.style.display = "none";
+        tradeSessionScreen.style.display = "block";
+        renderTradeSession();
+    } else {
+        tradeHomeScreen.style.display = "block";
+        tradeSessionScreen.style.display = "none";
+        renderTradeIncoming();
+        populateTradeItemSelect();
+    }
+});
+closeTrade.addEventListener("click", () => { playSound("click"); tradeWindow.style.display = "none"; });
+
+const TRADE_REQUEST_COOLDOWN_MS = 2 * 60 * 1000;
+
+tradeSendRequestButton.addEventListener("click", () => {
+    const targetUsername = tradeTargetUsernameInput.value.trim();
+    tradeSendError.style.color = "#ff6b6b";
+    tradeSendError.textContent = "";
+    if (!targetUsername) { tradeSendError.textContent = "Entre un pseudo."; return; }
+    if (targetUsername === loggedInUsername) { tradeSendError.textContent = "Tu ne peux pas te trader toi-même."; return; }
+    if (!window.playerAccount) return;
+
+    window.playerAccount.lookupUsername(targetUsername).then((targetData) => {
+        if (!targetData) { tradeSendError.textContent = "Ce joueur n'existe pas."; return; }
+        return window.playerAccount.getTradeCooldown(loggedInUid, targetData.uid).then((lastSent) => {
+            const remainingMs = TRADE_REQUEST_COOLDOWN_MS - (Date.now() - lastSent);
+            if (remainingMs > 0) {
+                const remainingSec = Math.ceil(remainingMs / 1000);
+                tradeSendError.textContent = `Attends encore ${remainingSec}s avant de renvoyer une demande à ce joueur.`;
+                return;
+            }
+            return window.playerAccount.getTradesEnabled(targetData.uid).then((enabled) => {
+                if (!enabled) { tradeSendError.textContent = "Ce joueur n'accepte pas les trades."; return; }
+                return window.playerAccount.sendTradeRequest(targetData.uid, loggedInUid, loggedInUsername).then(() => {
+                    window.playerAccount.setTradeCooldown(loggedInUid, targetData.uid);
+                    playSound("success");
+                    tradeTargetUsernameInput.value = "";
+                    tradeSendError.style.color = "#4caf50";
+                    tradeSendError.textContent = "Demande envoyée !";
+                });
+            });
+        });
+    });
+});
+
+tradeAddItemButton.addEventListener("click", () => {
+    if (!currentTradeId) return;
+    const name = tradeItemSelect.value;
+    const qty = parseInt(tradeItemQtyInput.value) || 0;
+    if (!name || qty <= 0) return;
+    const invObj = getInventoryObjectForItem(name);
+    const owned = invObj ? (invObj[name] || 0) : 0;
+    const myOffer = getMyOffer();
+    const alreadyOffered = (myOffer.items && myOffer.items[name]) || 0;
+    if (alreadyOffered + qty > owned) {
+        alert("Tu n'as pas assez de cette rareté.");
+        return;
+    }
+    const newItems = { ...(myOffer.items || {}) };
+    newItems[name] = (newItems[name] || 0) + qty;
+    playSound("click");
+    window.playerAccount.updateTradeOffer(currentTradeId, mySide, { coins: myOffer.coins || 0, items: newItems });
+});
+
+tradeCoinsInput.addEventListener("change", () => {
+    if (!currentTradeId) return;
+    let amount = parseInt(tradeCoinsInput.value) || 0;
+    if (amount < 0) amount = 0;
+    if (amount > coins) {
+        alert("Tu n'as pas assez de pièces.");
+        tradeCoinsInput.value = getMyOffer().coins || 0;
+        return;
+    }
+    playSound("click");
+    window.playerAccount.updateTradeOffer(currentTradeId, mySide, { coins: amount, items: getMyOffer().items || {} });
+});
+
+tradeConfirmButton.addEventListener("click", () => {
+    if (!currentTradeId) return;
+    playSound("click");
+    window.playerAccount.setTradeConfirmation(currentTradeId, mySide, !amIConfirmed());
+});
+
+tradeCancelButton.addEventListener("click", () => {
+    if (!currentTradeId || !currentTradeData) return;
+    playSound("click");
+    window.playerAccount.endTrade(currentTradeId, currentTradeData.uidA, currentTradeData.uidB);
+    exitTradeSession();
+});
+
+tradesEnabledToggle.addEventListener("change", () => {
+    if (!loggedInUid || !window.playerAccount) { tradesEnabledToggle.checked = true; return; }
+    playSound("click");
+    window.playerAccount.setTradesEnabled(loggedInUid, tradesEnabledToggle.checked);
+});
+
+// --- Bannière globale de demande de trade (file d'attente, 15s pour répondre) ---
+
+function enqueueTradeRequestNotification(requestId, req) {
+    tradeRequestQueue.push({ requestId, req });
+    if (!tradeRequestBannerShowing) showNextTradeRequestNotification();
+}
+
+function showNextTradeRequestNotification() {
+    if (tradeRequestQueue.length === 0) {
+        tradeRequestBannerShowing = false;
+        tradeRequestBanner.style.display = "none";
+        return;
+    }
+    tradeRequestBannerShowing = true;
+    const { requestId, req } = tradeRequestQueue.shift();
+    tradeRequestBannerText.textContent = `🔄 ${req.fromUsername} veut faire un trade !`;
+    tradeRequestBanner.dataset.requestId = requestId;
+    tradeRequestBanner.dataset.fromUid = req.fromUid;
+    tradeRequestBanner.dataset.fromUsername = req.fromUsername;
+    tradeRequestBanner.style.display = "block";
+
+    if (tradeRequestBannerTimeout) clearTimeout(tradeRequestBannerTimeout);
+    tradeRequestBannerTimeout = setTimeout(() => {
+        showNextTradeRequestNotification();
+    }, 15000);
+}
+
+tradeRequestAcceptBtn.addEventListener("click", () => {
+    const requestId = tradeRequestBanner.dataset.requestId;
+    const fromUid = tradeRequestBanner.dataset.fromUid;
+    const fromUsername = tradeRequestBanner.dataset.fromUsername;
+    if (tradeRequestBannerTimeout) clearTimeout(tradeRequestBannerTimeout);
+    playSound("success");
+    window.playerAccount.acceptTradeRequest(loggedInUid, loggedInUsername, requestId, fromUid, fromUsername)
+        .then((tradeId) => {
+            enterTradeSession(tradeId);
+            tradeWindow.style.display = "flex";
+        });
+    showNextTradeRequestNotification();
+});
+
+tradeRequestDeclineBtn.addEventListener("click", () => {
+    const requestId = tradeRequestBanner.dataset.requestId;
+    if (tradeRequestBannerTimeout) clearTimeout(tradeRequestBannerTimeout);
+    playSound("click");
+    window.playerAccount.declineTradeRequest(loggedInUid, requestId);
+    showNextTradeRequestNotification();
+});
+
 // --- Raccourci admin discret : Ctrl + Shift tenus, puis 4, 5, 6 dans l'ordre ---
 // (utilise e.code, indépendant de la disposition du clavier, ex: FR-CA)
 let adminComboBuffer = [];
@@ -1660,13 +2140,15 @@ adminLogoutButton.addEventListener("click", () => {
 adminSendMsgButton.addEventListener("click", () => {
     const text = adminMessageInput.value.trim();
     if (text === "") return alert("Écris un message !");
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
     if (adminTestModeToggle.checked) {
         triggerAdminMessage(text);
     } else {
         if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
-        window.firebaseAdmin.push({ message: { text, id: Date.now() } });
+        window.firebaseAdmin.push({ message: { text, id: Date.now(), targetUsername: target } });
     }
     adminMessageInput.value = "";
 });
@@ -1688,9 +2170,11 @@ adminClearMsgButton.addEventListener("click", () => {
 adminStartMoneyEvent.addEventListener("click", () => {
     const mult = parseInt(adminMoneyMultiplierInput.value) || 1;
     const durationSec = (parseInt(adminMoneyDurationInput.value) || 1) * 60;
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
-    const eventData = { mult, endsAt: Date.now() + durationSec * 1000 };
+    const eventData = { mult, endsAt: Date.now() + durationSec * 1000, targetUsername: target };
     if (adminTestModeToggle.checked) {
         applyMoneyEventFromState(eventData);
     } else {
@@ -1713,9 +2197,11 @@ adminStopMoneyEvent.addEventListener("click", () => {
 adminStartLuckEvent.addEventListener("click", () => {
     const mult = parseInt(adminLuckMultiplierInput.value) || 1;
     const durationSec = (parseInt(adminLuckDurationInput.value) || 1) * 60;
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
-    const eventData = { mult, endsAt: Date.now() + durationSec * 1000 };
+    const eventData = { mult, endsAt: Date.now() + durationSec * 1000, targetUsername: target };
     if (adminTestModeToggle.checked) {
         applyLuckEventFromState(eventData);
     } else {
@@ -1738,13 +2224,15 @@ adminStopLuckEvent.addEventListener("click", () => {
 adminForceRarityButton.addEventListener("click", () => {
     const found = rarities.find(r => r.name === adminRaritySelect.value);
     if (found) {
+        const target = getAdminTarget();
+        if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
         playSound("success");
         adminPage.style.display = "none";
         if (adminTestModeToggle.checked) {
             forcedRarity = found;
         } else {
             if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
-            window.firebaseAdmin.push({ forcedRarity: { name: found.name, id: Date.now() } });
+            window.firebaseAdmin.push({ forcedRarity: { name: found.name, id: Date.now(), targetUsername: target } });
         }
     }
 });
@@ -1763,9 +2251,11 @@ adminCancelForceRarityButton.addEventListener("click", () => {
 adminStartCountdown.addEventListener("click", () => {
     const message = adminCountdownMessageInput.value.trim() || "Admin Abuse imminent !";
     const durationSec = (parseInt(adminCountdownDurationInput.value) || 1) * 60;
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
-    const countdownData = { message, endsAt: Date.now() + durationSec * 1000 };
+    const countdownData = { message, endsAt: Date.now() + durationSec * 1000, targetUsername: target };
     if (adminTestModeToggle.checked) {
         applyCountdownFromState(countdownData);
     } else {
@@ -1788,13 +2278,15 @@ adminStopCountdown.addEventListener("click", () => {
 adminUnlockAchievementButton.addEventListener("click", () => {
     const id = adminAchievementSelect.value;
     if (!id) return;
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
     if (adminTestModeToggle.checked) {
         forceUnlockAchievement(id);
     } else {
         if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
-        window.firebaseAdmin.push({ unlockAchievement: { id, requestId: Date.now() } });
+        window.firebaseAdmin.push({ unlockAchievement: { id, requestId: Date.now(), targetUsername: target } });
     }
 });
 
@@ -1814,6 +2306,8 @@ adminCancelUnlockAchievementButton.addEventListener("click", () => {
 });
 
 adminStartSpecialEvent.addEventListener("click", () => {
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
     if (adminTestModeToggle.checked) {
@@ -1822,7 +2316,7 @@ adminStartSpecialEvent.addEventListener("click", () => {
         triggerEventStartBanner();
     } else {
         if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
-        window.firebaseAdmin.push({ specialEvent: true });
+        window.firebaseAdmin.push({ specialEvent: { active: true, targetUsername: target } });
     }
 });
 
@@ -1841,13 +2335,15 @@ adminStopSpecialEvent.addEventListener("click", () => {
 adminForceEventRarityButton.addEventListener("click", () => {
     const found = eventRarities.find(r => r.name === adminEventRaritySelect.value);
     if (found) {
+        const target = getAdminTarget();
+        if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
         playSound("success");
         adminPage.style.display = "none";
         if (adminTestModeToggle.checked) {
             forcedEventRarity = found;
         } else {
             if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
-            window.firebaseAdmin.push({ forcedEventRarity: { name: found.name, id: Date.now() } });
+            window.firebaseAdmin.push({ forcedEventRarity: { name: found.name, id: Date.now(), targetUsername: target } });
         }
     }
 });
@@ -1866,6 +2362,8 @@ adminCancelForceEventRarityButton.addEventListener("click", () => {
 adminGiveCoinsButton.addEventListener("click", () => {
     const amount = parseInt(adminGiveCoinsInput.value) || 0;
     if (amount <= 0) return;
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
     if (adminTestModeToggle.checked) {
@@ -1875,16 +2373,18 @@ adminGiveCoinsButton.addEventListener("click", () => {
         saveGame();
     } else {
         if (!window.firebaseAdmin) return alert("Synchro Firebase non connectée.");
-        window.firebaseAdmin.push({ giveCoins: { amount, requestId: Date.now() } });
+        window.firebaseAdmin.push({ giveCoins: { amount, requestId: Date.now(), targetUsername: target } });
     }
 });
 
 adminStartMultiRollEvent.addEventListener("click", () => {
     const count = Math.max(2, parseInt(adminMultiRollCountInput.value) || 2);
     const durationSec = (parseInt(adminMultiRollDurationInput.value) || 1) * 60;
+    const target = getAdminTarget();
+    if (target === undefined) return alert("Entre le pseudo du joueur ciblé.");
     playSound("success");
     adminPage.style.display = "none";
-    const eventData = { count, endsAt: Date.now() + durationSec * 1000 };
+    const eventData = { count, endsAt: Date.now() + durationSec * 1000, targetUsername: target };
     if (adminTestModeToggle.checked) {
         applyMultiRollEventFromState(eventData);
     } else {
@@ -2039,66 +2539,82 @@ function applyMultiRollEventFromState(multiRollEvent) {
     multiRollCountdownInterval = setInterval(tick, 1000);
 }
 
+// Une action non ciblée (targetUsername null/absent) touche tout le monde.
+// Une action ciblée ne s'applique que si mon pseudo correspond.
+function isTargetedAtMe(targetUsername) {
+    return !targetUsername || targetUsername === loggedInUsername;
+}
+
 function handleAdminState(state) {
-    // Message global
-    if (state.message && state.message.id !== lastAppliedMessageId) {
-        lastAppliedMessageId = state.message.id;
-        triggerAdminMessage(state.message.text);
-    } else if (!state.message && adminAnnouncementBanner.style.display !== "none") {
+    // Message global (ou ciblé)
+    const targetedMessage = state.message && isTargetedAtMe(state.message.targetUsername) ? state.message : null;
+    if (targetedMessage && targetedMessage.id !== lastAppliedMessageId) {
+        lastAppliedMessageId = targetedMessage.id;
+        triggerAdminMessage(targetedMessage.text);
+    } else if (!targetedMessage && adminAnnouncementBanner.style.display !== "none") {
         if (adminMessageTimeout) clearTimeout(adminMessageTimeout);
         adminAnnouncementBanner.style.display = "none";
         adminMessage = "";
     }
 
-    // Events pièces / luck (pilotés entièrement par l'état reçu)
-    applyMoneyEventFromState(state.moneyEvent);
-    applyLuckEventFromState(state.luckEvent);
-    applyCountdownFromState(state.countdown);
+    // Events pièces / luck / countdown (ciblés ou globaux, pilotés entièrement par l'état reçu)
+    applyMoneyEventFromState(state.moneyEvent && isTargetedAtMe(state.moneyEvent.targetUsername) ? state.moneyEvent : null);
+    applyLuckEventFromState(state.luckEvent && isTargetedAtMe(state.luckEvent.targetUsername) ? state.luckEvent : null);
+    applyCountdownFromState(state.countdown && isTargetedAtMe(state.countdown.targetUsername) ? state.countdown : null);
 
-    // Rareté forcée : s'applique au prochain roll de CHAQUE joueur
-    if (state.forcedRarity && state.forcedRarity.id !== lastAppliedForcedRarityId) {
-        lastAppliedForcedRarityId = state.forcedRarity.id;
-        const found = rarities.find(r => r.name === state.forcedRarity.name);
+    // Rareté forcée : s'applique au prochain roll de CHAQUE joueur (ou d'un joueur précis)
+    const targetedForcedRarity = state.forcedRarity && isTargetedAtMe(state.forcedRarity.targetUsername) ? state.forcedRarity : null;
+    if (targetedForcedRarity && targetedForcedRarity.id !== lastAppliedForcedRarityId) {
+        lastAppliedForcedRarityId = targetedForcedRarity.id;
+        const found = rarities.find(r => r.name === targetedForcedRarity.name);
         if (found) forcedRarity = found;
-    } else if (!state.forcedRarity && lastAppliedForcedRarityId !== null) {
+    } else if (!targetedForcedRarity && lastAppliedForcedRarityId !== null) {
         // L'admin a annulé : on retire l'effet chez ceux qui n'ont pas encore rollé
         lastAppliedForcedRarityId = null;
         forcedRarity = null;
     }
 
-    // Déblocage forcé d'un succès (une seule fois par requestId)
+    // Déblocage forcé d'un succès (une seule fois par requestId, ciblé ou global)
     if (state.unlockAchievement && state.unlockAchievement.requestId !== lastAppliedUnlockAchievementRequestId) {
         lastAppliedUnlockAchievementRequestId = state.unlockAchievement.requestId;
-        forceUnlockAchievement(state.unlockAchievement.id);
+        if (isTargetedAtMe(state.unlockAchievement.targetUsername)) {
+            forceUnlockAchievement(state.unlockAchievement.id);
+        }
     }
 
-    // Event spécial : affiche/masque le bouton chez tout le monde
-    const newEventActive = !!state.specialEvent;
+    // Event spécial : affiche/masque le bouton (ciblé ou chez tout le monde)
+    const specialEventState = state.specialEvent;
+    const specialEventIsBool = typeof specialEventState === "boolean"; // compat anciennes données
+    const specialEventTargeted = specialEventState && !specialEventIsBool ? isTargetedAtMe(specialEventState.targetUsername) : !!specialEventState;
+    const newEventActive = specialEventIsBool ? specialEventState : !!(specialEventState && specialEventState.active && specialEventTargeted);
     if (newEventActive && !isEventActive) triggerEventStartBanner();
     isEventActive = newEventActive;
     updateEventButtonVisibility();
 
-    // Rareté forcée pour l'event Julesb4 : s'applique au prochain ROLL JULESB4 de CHAQUE joueur
-    if (state.forcedEventRarity && state.forcedEventRarity.id !== lastAppliedForcedEventRarityId) {
-        lastAppliedForcedEventRarityId = state.forcedEventRarity.id;
-        const found = eventRarities.find(r => r.name === state.forcedEventRarity.name);
+    // Rareté forcée pour l'event Julesb4 : s'applique au prochain ROLL JULESB4 (ciblé ou global)
+    const targetedForcedEventRarity = state.forcedEventRarity && isTargetedAtMe(state.forcedEventRarity.targetUsername) ? state.forcedEventRarity : null;
+    if (targetedForcedEventRarity && targetedForcedEventRarity.id !== lastAppliedForcedEventRarityId) {
+        lastAppliedForcedEventRarityId = targetedForcedEventRarity.id;
+        const found = eventRarities.find(r => r.name === targetedForcedEventRarity.name);
         if (found) forcedEventRarity = found;
-    } else if (!state.forcedEventRarity && lastAppliedForcedEventRarityId !== null) {
+    } else if (!targetedForcedEventRarity && lastAppliedForcedEventRarityId !== null) {
         lastAppliedForcedEventRarityId = null;
         forcedEventRarity = null;
     }
 
-    // Don de pièces (une seule fois par requestId, chez chaque joueur connecté)
+    // Don de pièces (une seule fois par requestId, ciblé ou chez chaque joueur connecté)
     if (state.giveCoins && state.giveCoins.requestId !== lastAppliedGiveCoinsRequestId) {
         lastAppliedGiveCoinsRequestId = state.giveCoins.requestId;
-        coins += state.giveCoins.amount;
-        updateUIStats();
-        checkAchievements();
-        saveGame();
+        if (isTargetedAtMe(state.giveCoins.targetUsername)) {
+            coins += state.giveCoins.amount;
+            updateUIStats();
+            checkAchievements();
+            saveGame();
+        }
     }
 
-    // Event Multi-Roll (piloté entièrement par l'état reçu)
-    applyMultiRollEventFromState(state.multiRollEvent);
+    // Event Multi-Roll (ciblé ou global, piloté entièrement par l'état reçu)
+    applyMultiRollEventFromState(state.multiRollEvent && isTargetedAtMe(state.multiRollEvent.targetUsername) ? state.multiRollEvent : null);
 }
 
 function connectAdminSync() {
