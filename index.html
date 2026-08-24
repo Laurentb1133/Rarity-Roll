@@ -28,6 +28,15 @@
         <div style="font-size: 16px;">L'Événement Julesb4 est maintenant actif !</div>
     </div>
 
+    <!-- Bannière de demande de trade reçue (overlay global) -->
+    <div id="tradeRequestBanner" style="display: none; position: fixed; top: 230px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #5865f2, #43b581); color: white; font-weight: bold; padding: 14px 20px; border-radius: 10px; font-size: 14px; text-align: center; box-shadow: 0 4px 20px rgba(88, 101, 242, 0.5); z-index: 9700; max-width: 90vw;">
+        <div id="tradeRequestBannerText" style="margin-bottom: 10px;"></div>
+        <div style="display: flex; gap: 8px;">
+            <button id="tradeRequestAcceptBtn" style="flex: 1; padding: 8px 14px; background: #43b581; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">Accepter</button>
+            <button id="tradeRequestDeclineBtn" style="flex: 1; padding: 8px 14px; background: #ff3b30; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">Refuser</button>
+        </div>
+    </div>
+
 
     <div class="game">
 
@@ -91,7 +100,13 @@
             </div>
             <div></div>
         </div>
-        <button id="achievementsButton">🏆 SUCCÈS</button>
+        <div style="display: grid; grid-template-columns: 210px 1fr 210px; align-items: center; gap: 10px; width: 100%; max-width: 640px; margin: 0 auto;">
+            <button id="tradeButton" style="margin: 15px 0 0 0;">🔄 TRADE</button>
+            <div style="display: flex; justify-content: center;">
+                <button id="achievementsButton" style="margin: 15px 0 0 0;">🏆 SUCCÈS</button>
+            </div>
+            <div></div>
+        </div>
         <button id="settingsButton">⚙️ PARAMÈTRES</button>
         <button id="eventButton" style="display: none; margin: 15px auto 0; font-size: 18px; font-weight: bold; padding: 12px 25px; border: none; border-radius: 10px; background: linear-gradient(90deg, #8338ec, #00e5ff); color: white; cursor: pointer; transition: 0.15s; width: 210px; box-shadow: 0 0 15px rgba(131, 56, 236, 0.5);">🎉 Événement Julesb4</button>
 
@@ -195,6 +210,70 @@
         </div>
     </div>
 
+    <!-- Fenêtre Trade -->
+    <div id="tradeWindow" class="inventoryWindow">
+        <div class="inventoryBox" style="width: 340px;">
+            <div class="inventoryHeader">
+                <h2>🔄 Trade</h2>
+                <button id="closeTrade">✕</button>
+            </div>
+
+            <div id="tradeNoAccountMessage" style="display: none; text-align: center; padding: 25px 10px; color: #ccc; font-size: 14px; line-height: 1.6;">
+                🔒 Crée un compte dans <strong>⚙️ Paramètres</strong> pour pouvoir trader !
+            </div>
+
+            <!-- Écran par défaut: envoyer une demande + demandes reçues -->
+            <div id="tradeHomeScreen" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 13px;">Envoyer une demande à :</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="tradeTargetUsernameInput" placeholder="Pseudo du joueur" style="flex: 1; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box;">
+                        <button id="tradeSendRequestButton" style="padding: 10px 14px; background: #5865f2; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Envoyer</button>
+                    </div>
+                    <div id="tradeSendError" style="color: #ff6b6b; font-size: 12px; margin-top: 6px;"></div>
+                </div>
+
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #aaa;">Demandes reçues :</label>
+                    <div id="tradeIncomingList"></div>
+                </div>
+            </div>
+
+            <!-- Session de trade active -->
+            <div id="tradeSessionScreen" style="display: none;">
+                <p style="font-size: 13px; color: #aaa; margin-bottom: 10px;">Trade avec <strong id="tradePartnerName" style="color: #5865f2;"></strong></p>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px;">🧑 Ton offre <span id="tradeMyConfirmedBadge"></span></div>
+                        <div id="tradeMyOfferList" style="min-height: 60px; background: #111; border-radius: 8px; padding: 8px; font-size: 12px;"></div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px;">🎁 Leur offre <span id="tradeTheirConfirmedBadge"></span></div>
+                        <div id="tradeTheirOfferList" style="min-height: 60px; background: #111; border-radius: 8px; padding: 8px; font-size: 12px;"></div>
+                    </div>
+                </div>
+
+                <div style="background: #292929; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 12px;">Ajouter une rareté :</label>
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <select id="tradeItemSelect" style="flex: 2; padding: 8px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; font-size: 12px;"></select>
+                        <input type="number" id="tradeItemQtyInput" value="1" min="1" style="flex: 1; padding: 8px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; font-size: 12px;">
+                        <button id="tradeAddItemButton" style="padding: 8px 10px; background: #5865f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">+</button>
+                    </div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 12px;">Pièces à offrir :</label>
+                    <input type="number" id="tradeCoinsInput" value="0" min="0" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box; font-size: 12px;">
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button id="tradeConfirmButton" style="flex: 1; padding: 12px; background: #43b581; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">✅ Confirmer</button>
+                    <button id="tradeCancelButton" style="padding: 12px 15px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Annuler</button>
+                </div>
+                <p style="font-size: 11px; color: #888; margin-top: 8px; margin-bottom: 0;">L'échange se fait automatiquement quand les deux joueurs ont confirmé.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Fenêtre Paramètres -->
     <div id="settingsWindow" class="inventoryWindow">
         <div class="inventoryBox">
@@ -204,6 +283,21 @@
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 20px; padding: 10px 0;">
+                <div style="background: #292929; padding: 15px; border-radius: 10px;">
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-weight: bold; margin: 0;">
+                        🔊 Son
+                        <input type="checkbox" id="soundToggle" checked style="width: 20px; height: 20px; cursor: pointer;">
+                    </label>
+                </div>
+
+                <div style="background: #292929; padding: 15px; border-radius: 10px;">
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-weight: bold; margin: 0;">
+                        🔄 Accepter les trades
+                        <input type="checkbox" id="tradesEnabledToggle" checked style="width: 20px; height: 20px; cursor: pointer;">
+                    </label>
+                    <p style="font-size: 11px; color: #888; margin-top: 8px; margin-bottom: 0;">Si désactivé, personne ne peut t'envoyer de demande de trade (nécessite un compte).</p>
+                </div>
+
                 <div style="background: #292929; padding: 15px; border-radius: 10px;">
                     <label for="luckSlider" style="font-weight: bold; display: block; margin-bottom: 10px;">
                         🎯 Multiplicateur actif : <span id="currentLuckSetting" style="color: #5865f2;">x1</span>
@@ -321,6 +415,27 @@
                     <input type="checkbox" id="adminTestModeToggle" style="width: 20px; height: 20px; cursor: pointer;">
                     🧪 Mode Test (l'action s'applique seulement à moi, pas aux autres joueurs)
                 </label>
+            </div>
+
+            <div style="margin-bottom: 20px; background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 10px;">🎯 Cible des commandes</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; font-weight: normal;">
+                        <input type="radio" name="adminTargetMode" id="adminTargetGlobal" value="global" checked style="cursor: pointer;">
+                        🌍 Tout le monde
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; font-weight: normal;">
+                        <input type="radio" name="adminTargetMode" id="adminTargetSpecific" value="specific" style="cursor: pointer;">
+                        🎯 Joueur spécifique
+                    </label>
+                </div>
+                <div id="adminTargetSpecificWrapper" style="display: none; gap: 8px;">
+                    <select id="adminTargetUsernameSelect" style="flex: 1; padding: 10px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; cursor: pointer;">
+                        <option value="">— Choisir un joueur —</option>
+                    </select>
+                    <button id="adminRefreshTargetList" title="Actualiser la liste" style="padding: 10px 14px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer;">🔄</button>
+                </div>
+                <p style="font-size: 11px; color: #888; margin-top: 8px; margin-bottom: 0;">S'applique à la prochaine commande déclenchée, peu importe laquelle. Ne fonctionne que pour les joueurs connectés à un compte.</p>
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
@@ -553,6 +668,9 @@
             getLeaderboard() {
                 return get(ref(playerDb, "leaderboard")).then(snap => snap.exists() ? snap.val() : {});
             },
+            getAllUsernames() {
+                return get(ref(playerDb, "usernames")).then(snap => snap.exists() ? Object.keys(snap.val()) : []);
+            },
             changeUsername(newUsername) {
                 const user = playerAuth.currentUser;
                 if (!user) return Promise.reject({ code: "auth/not-logged-in" });
@@ -567,6 +685,72 @@
                             .then(() => updateProfile(user, { displayName: newUsername }).catch(() => {}));
                     });
                 });
+            },
+
+            // --- TRADE ---
+            getTradesEnabled(uid) {
+                return get(ref(playerDb, "tradeSettings/" + uid)).then(snap => {
+                    if (!snap.exists()) return true; // activé par défaut
+                    return snap.val().disabled !== true;
+                });
+            },
+            setTradesEnabled(uid, enabled) {
+                return set(ref(playerDb, "tradeSettings/" + uid), { disabled: !enabled });
+            },
+            lookupUsername(username) {
+                return get(ref(playerDb, "usernames/" + username)).then(snap => snap.exists() ? snap.val() : null);
+            },
+            sendTradeRequest(toUid, fromUid, fromUsername) {
+                const requestId = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+                return set(ref(playerDb, "tradeRequests/" + toUid + "/" + requestId), { fromUid, fromUsername, createdAt: Date.now() });
+            },
+            getTradeCooldown(fromUid, toUid) {
+                return get(ref(playerDb, "tradeCooldowns/" + fromUid + "/" + toUid)).then(snap => snap.exists() ? snap.val() : 0);
+            },
+            setTradeCooldown(fromUid, toUid) {
+                return set(ref(playerDb, "tradeCooldowns/" + fromUid + "/" + toUid), Date.now());
+            },
+            listenTradeRequests(uid, callback) {
+                onValue(ref(playerDb, "tradeRequests/" + uid), (snap) => callback(snap.exists() ? snap.val() : {}));
+            },
+            declineTradeRequest(uid, requestId) {
+                return set(ref(playerDb, "tradeRequests/" + uid + "/" + requestId), null);
+            },
+            acceptTradeRequest(myUid, myUsername, requestId, fromUid, fromUsername) {
+                const tradeId = "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+                const tradeData = {
+                    uidA: fromUid, usernameA: fromUsername,
+                    uidB: myUid, usernameB: myUsername,
+                    offerA: { coins: 0, items: {} },
+                    offerB: { coins: 0, items: {} },
+                    confirmA: false, confirmB: false,
+                    status: "active",
+                    createdAt: Date.now()
+                };
+                return set(ref(playerDb, "activeTrades/" + tradeId), tradeData)
+                    .then(() => set(ref(playerDb, "activeTradePointer/" + myUid), tradeId))
+                    .then(() => set(ref(playerDb, "activeTradePointer/" + fromUid), tradeId))
+                    .then(() => set(ref(playerDb, "tradeRequests/" + myUid + "/" + requestId), null))
+                    .then(() => tradeId);
+            },
+            getActiveTradeId(uid) {
+                return get(ref(playerDb, "activeTradePointer/" + uid)).then(snap => snap.exists() ? snap.val() : null);
+            },
+            listenActiveTrade(tradeId, callback) {
+                onValue(ref(playerDb, "activeTrades/" + tradeId), (snap) => callback(snap.exists() ? snap.val() : null));
+            },
+            updateTradeOffer(tradeId, side, offer) {
+                return set(ref(playerDb, "activeTrades/" + tradeId + "/offer" + side), offer)
+                    .then(() => set(ref(playerDb, "activeTrades/" + tradeId + "/confirmA"), false))
+                    .then(() => set(ref(playerDb, "activeTrades/" + tradeId + "/confirmB"), false));
+            },
+            setTradeConfirmation(tradeId, side, value) {
+                return set(ref(playerDb, "activeTrades/" + tradeId + "/confirm" + side), value);
+            },
+            endTrade(tradeId, uidA, uidB) {
+                return set(ref(playerDb, "activeTrades/" + tradeId), null)
+                    .then(() => set(ref(playerDb, "activeTradePointer/" + uidA), null))
+                    .then(() => set(ref(playerDb, "activeTradePointer/" + uidB), null));
             }
         };
 
