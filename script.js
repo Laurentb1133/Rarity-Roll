@@ -1337,8 +1337,21 @@ resetButton.addEventListener("click", () => {
     playSound("click");
     if (confirm("Réinitialiser toute la progression ?")) {
         resetToFreshGameState();
-        if (loggedInUid) saveGame();
-        location.reload();
+        if (loggedInUid && window.playerAccount) {
+            const blankData = {
+                coins, luck, activeLuck, luckLevel, luckCost,
+                coinMult, coinMultLevel, coinMultCost,
+                totalRolls, inventory, unlockedAchievements, eventInventory,
+                hasParticipatedJulesb4Event, totalPlayTimeSeconds,
+                username: loggedInUsername, updatedAt: Date.now(),
+                rarestOddsNumber: 0, rarestName: ""
+            };
+            window.playerAccount.saveToCloud(loggedInUid, blankData)
+                .then(() => location.reload())
+                .catch(() => location.reload());
+        } else {
+            location.reload();
+        }
     }
 });
 
