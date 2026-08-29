@@ -1336,7 +1336,8 @@ luckSlider.addEventListener("input", (e) => {
 resetButton.addEventListener("click", () => {
     playSound("click");
     if (confirm("Réinitialiser toute la progression ?")) {
-        localStorage.removeItem("rngGameSave");
+        resetToFreshGameState();
+        if (loggedInUid) saveGame();
         location.reload();
     }
 });
